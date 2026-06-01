@@ -91,29 +91,15 @@ class _SplashScreenSequenceState extends State<SplashScreenSequence> with Ticker
   }
 
   Widget _buildLogo() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E56D0),
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: const Icon(Icons.alt_route_rounded, color: Colors.white, size: 50),
-        ),
-        const SizedBox(height: 25),
-        const Text(
-          "ARROWX",
-          style: TextStyle(
-            fontSize: 48,
-            letterSpacing: 8,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF1A1A1A),
-          ),
-        ),
-      ],
+    return SizedBox(
+      width: 280,
+      height: 180,
+      child: Image.asset(
+        'assets/icon.png',
+        fit: BoxFit.contain,
+        color: const Color(0xFFFBFBFB),
+        colorBlendMode: BlendMode.multiply,
+      ),
     );
   }
 

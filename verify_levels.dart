@@ -11,14 +11,33 @@ void main() {
     final int level = lvl['level'];
     final int gs = lvl['gridSize'];
     final arrows = (lvl['arrows'] as List).map((a) {
-      int sx = a['sx'], sy = a['sy'], len = a['len'];
-      String dir = a['dir'];
-      int dx = 0, dy = 0;
-      switch (dir) { case 'right': dx=1; break; case 'left': dx=-1; break; case 'down': dy=1; break; case 'up': dy=-1; break; }
+      List<List<int>> arrowPath;
+      List<int> flyDir;
+      if (a.containsKey('path')) {
+        arrowPath = (a['path'] as List).map((pt) {
+          final p = pt as List;
+          return [(p[0] as num).toInt(), (p[1] as num).toInt()];
+        }).toList();
+        
+        if (arrowPath.length < 2) {
+          flyDir = [0, -1];
+        } else {
+          final head = arrowPath.last;
+          final prev = arrowPath[arrowPath.length - 2];
+          flyDir = [(head[0] - prev[0]).sign, (head[1] - prev[1]).sign];
+        }
+      } else {
+        int sx = a['sx'], sy = a['sy'], len = a['len'];
+        String dir = a['dir'];
+        int dx = 0, dy = 0;
+        switch (dir) { case 'right': dx=1; break; case 'left': dx=-1; break; case 'down': dy=1; break; case 'up': dy=-1; break; }
+        arrowPath = List.generate(len, (i) => [sx + dx*i, sy + dy*i]);
+        flyDir = [dx, dy];
+      }
       return {
         'id': a['id'],
-        'path': List.generate(len, (i) => [sx + dx*i, sy + dy*i]),
-        'dir': [dx, dy],
+        'path': arrowPath,
+        'dir': flyDir,
         'solved': false,
       };
     }).toList();

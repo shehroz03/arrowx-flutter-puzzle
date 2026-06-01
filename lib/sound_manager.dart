@@ -1,5 +1,4 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/foundation.dart';
 
 class SoundManager {
   static final SoundManager _instance = SoundManager._internal();
@@ -13,25 +12,16 @@ class SoundManager {
 
   bool get isMuted => _isMuted;
 
-  void toggle() {
-    _isMuted = !_isMuted;
+  // Sync with Global Settings
+  void setMute(bool shouldMute) {
+    if (_isMuted == shouldMute) return;
+    _isMuted = shouldMute;
     if (_isMuted) {
       _sfxPlayer.stop();
       _musicPlayer.stop();
+    } else {
+      startBGM(); // Resume BGM if unmuted
     }
-  }
-
-  void toggleMute(bool muted) {
-    _isMuted = muted;
-    if (_isMuted) {
-      _sfxPlayer.stop();
-      _musicPlayer.stop();
-    }
-  }
-
-  Future<void> preloads() async {
-    // If you add file assets later, preload them here.
-    // e.g. await AudioCache.instance.loadAll(['tap.mp3', 'whoosh.mp3', 'error.mp3', 'success.mp3']);
   }
 
   void playTap() {
@@ -54,13 +44,26 @@ class SoundManager {
     _playSound('success.wav');
   }
 
+  Future<void> startBGM() async {
+    if (_isMuted) return;
+    try {
+      await _musicPlayer.setReleaseMode(ReleaseMode.loop);
+      await _musicPlayer.play(AssetSource('sounds/bgm.wav'), volume: 0.4);
+    } catch (e) {
+      // Audio load failed
+    }
+  }
+
+  void stopBGM() {
+    _musicPlayer.stop();
+  }
+
   Future<void> _playSound(String assetName) async {
     try {
-      await _sfxPlayer.stop(); // Stop current play to reset for mobile
-      await _sfxPlayer.play(AssetSource('sounds/$assetName'));
+      // Use low latency for SFX to avoid glitches
+      await _sfxPlayer.play(AssetSource('sounds/$assetName'), mode: PlayerMode.lowLatency);
     } catch (e) {
-      // Ignore if files aren't added yet
-      debugPrint("Audio missing: $assetName");
+      // Audio load failed
     }
   }
 }

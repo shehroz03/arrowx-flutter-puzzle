@@ -14,7 +14,7 @@ class LevelSelectionScreen extends StatefulWidget {
 class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   int _unlockedLevel = 1;
   int _totalPoints = 0;
-  final int _totalLevels = 50; // Game mein total kitne levels hain
+  final int _totalLevels = 70; // Total number of levels in the game
   bool _isLoading = true;
 
   @override
@@ -23,7 +23,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     _loadData();
   }
 
-  // Data Load Karne ka function
+  // Function to load saved data
   Future<void> _loadData() async {
     Map<String, int> data = await GameDataManager.loadProgress();
     setState(() {
@@ -33,7 +33,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     });
   }
 
-  // Data Reset Karne ka function
+  // Function to reset game data
   Future<void> _resetGame() async {
     showDialog(
       context: context,
@@ -41,7 +41,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
         backgroundColor: const Color(0xFF1E1E2C),
         title: const Text("Reset Progress?", style: TextStyle(color: Colors.white)),
         content: const Text(
-          "Kya aap waqai apni sari progress delete karna chahte hain? Yeh wapis nahi aayegi.",
+          "Are you sure you want to delete all your progress? This cannot be undone.",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -57,9 +57,9 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
               await GameDataManager.clearData();
               if (mounted) {
                 navigator.pop();
-                _loadData(); // UI ko refresh karein
+                _loadData(); // Refresh the UI
                 scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text("Game progress reset ho gayi hai.")),
+                  const SnackBar(content: Text("Game progress has been reset.")),
                 );
               }
             },
@@ -104,7 +104,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           padding: const EdgeInsets.all(16.0),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Responsive Grid: Mobile par 3 columns, Tablet par 5 columns
+              // Responsive Grid: 3 columns on mobile, 5 on tablet
               int crossAxisCount = constraints.maxWidth > 600 ? 5 : 3;
 
               return GridView.builder(
@@ -118,7 +118,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                 ),
                 itemBuilder: (context, index) {
                   int levelNumber = index + 1;
-                  bool isUnlocked = levelNumber <= _unlockedLevel;
+                  bool isUnlocked = true; // ALL STAGES OPEN FOR TESTING
                   bool isCurrentLevel = levelNumber == _unlockedLevel;
 
                   return _buildLevelCard(levelNumber, isUnlocked, isCurrentLevel);
@@ -148,10 +148,10 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
               ).then((_) => GameDataManager.saveLastScreen('level_selection'));
               debugPrint("Level $level Start!");
             } else {
-              // Locked level par click karne par chota sa message
+              // Show message when tapping a locked level
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text("Pehle Level ${level - 1} clear karein!"),
+                  content: Text("Clear Level ${level - 1} first!"),
                   duration: const Duration(milliseconds: 800),
                 ),
               );
@@ -160,11 +160,11 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
-              // Agar unlocked hai toh Blue Gradient, warna dark grey
+              // Blue gradient if unlocked, dark grey if locked
               gradient: isUnlocked
                   ? LinearGradient(
                       colors: isCurrentLevel 
-                          ? [Colors.blueAccent, Colors.purpleAccent] // Current level thora special
+                          ? [Colors.blueAccent, Colors.purpleAccent] // Current level highlighted
                           : [Colors.blue.shade800, Colors.blue.shade600],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,

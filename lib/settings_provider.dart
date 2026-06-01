@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'sound_manager.dart';
 
 class GameTheme {
   final Color bg;
@@ -52,12 +53,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    final sound = prefs.getBool('sound') ?? true;
     state = SettingsState(
-      isSoundOn: prefs.getBool('sound') ?? true,
+      isSoundOn: sound,
       isVibrationOn: prefs.getBool('vibration') ?? true,
       isGuidelineOn: prefs.getBool('guideline') ?? false,
       themeIndex: prefs.getInt('themeIndex') ?? 0,
     );
+    // Sync SoundManager on load
+    SoundManager().setMute(!sound);
   }
 
   Future<void> setTheme(int index) async {
@@ -70,6 +74,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(isSoundOn: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sound', value);
+    // Sync SoundManager on change
+    SoundManager().setMute(!value);
   }
 
   Future<void> toggleVibration(bool value) async {

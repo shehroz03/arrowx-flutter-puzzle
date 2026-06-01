@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'game_data.dart';
-import 'package:flutter/foundation.dart';
 import 'sound_manager.dart';
 import 'editor_provider.dart';
+
+enum GameMode { normal, speedRush, mazeMaster, colorMatch }
 
 class ArrowModel {
   final int id;
@@ -13,6 +15,8 @@ class ArrowModel {
   final bool arrowAtEnd;      // true = arrowhead at path.last
   final bool isSolved;
   final bool hasError;
+  final Set<String> occupiedCells;
+  final int colorIndex;
 
   ArrowModel({
     required this.id,
@@ -20,7 +24,8 @@ class ArrowModel {
     this.arrowAtEnd = true,
     this.isSolved = false,
     this.hasError = false,
-  });
+    this.colorIndex = 0,
+  }) : occupiedCells = path.map((p) => '${p[0]},${p[1]}').toSet();
 
   int get length => path.length;
 
@@ -44,8 +49,7 @@ class ArrowModel {
     return [(head[0] - prev[0]).sign, (head[1] - prev[1]).sign];
   }
 
-  /// All grid cells this arrow occupies as "x,y" strings for fast lookup
-  Set<String> get occupiedCells => path.map((p) => '${p[0]},${p[1]}').toSet();
+
 
   /// Bounding box [minX, minY, maxX, maxY]
   List<int> get bounds {
@@ -56,13 +60,14 @@ class ArrowModel {
     return [mnX, mnY, mxX, mxY];
   }
 
-  ArrowModel copyWith({List<List<int>>? path, bool? isSolved, bool? hasError}) {
+  ArrowModel copyWith({List<List<int>>? path, bool? isSolved, bool? hasError, int? colorIndex}) {
     return ArrowModel(
       id: id,
       path: path ?? this.path,
       arrowAtEnd: arrowAtEnd,
       isSolved: isSolved ?? this.isSolved,
       hasError: hasError ?? this.hasError,
+      colorIndex: colorIndex ?? this.colorIndex,
     );
   }
 }
@@ -79,6 +84,10 @@ class GameState {
   final int timeRemainingSeconds;
   final int earnedStars;
   final bool outOfTime;
+  final bool isHardStage;
+  final Set<String> revealedCells;
+  final GameMode gameMode;
+  final int? targetColorIndex;
 
   GameState({
     this.level = 1,
@@ -92,6 +101,10 @@ class GameState {
     this.timeRemainingSeconds = 60,
     this.earnedStars = 0,
     this.outOfTime = false,
+    this.isHardStage = false,
+    this.revealedCells = const {},
+    this.gameMode = GameMode.normal,
+    this.targetColorIndex,
   });
 
   GameState copyWith({
@@ -102,6 +115,10 @@ class GameState {
     int? timeRemainingSeconds,
     int? earnedStars,
     bool? outOfTime,
+    bool? isHardStage,
+    Set<String>? revealedCells,
+    GameMode? gameMode,
+    int? targetColorIndex,
   }) {
     return GameState(
       level: level ?? this.level,
@@ -115,7 +132,21 @@ class GameState {
       timeRemainingSeconds: timeRemainingSeconds ?? this.timeRemainingSeconds,
       earnedStars: earnedStars ?? this.earnedStars,
       outOfTime: outOfTime ?? this.outOfTime,
+      isHardStage: isHardStage ?? this.isHardStage,
+      revealedCells: revealedCells ?? this.revealedCells,
+      gameMode: gameMode ?? this.gameMode,
+      targetColorIndex: targetColorIndex ?? this.targetColorIndex,
     );
+  }
+
+  Set<String> get allOccupiedCells {
+    final set = <String>{};
+    for (var a in arrows) {
+      if (!a.isSolved) {
+        set.addAll(a.occupiedCells);
+      }
+    }
+    return set;
   }
 }
 
@@ -151,7 +182,11 @@ class GameNotifier extends StateNotifier<GameState> {
     return List.generate(len, (i) => [sx + dx * i, sy + dy * i]);
   }
 
-  Future<void> loadLevel(int targetLevel) async {
+  Future<void> loadLevel(int targetLevel, {bool force = false, GameMode mode = GameMode.normal}) async {
+    if (!force && state.level == targetLevel && state.arrows.isNotEmpty && !state.isLevelComplete && !state.gameOver && state.gameMode == mode) {
+       // Level already loaded and active, skip redundant reload
+       return;
+    }
     try {
       dynamic levelData;
       if (targetLevel >= 100) {
@@ -162,7 +197,11 @@ class GameNotifier extends StateNotifier<GameState> {
       }
 
       if (levelData == null) {
-        final String response = await rootBundle.loadString('assets/levels.json');
+        String assetPath = 'assets/levels.json';
+        if (mode == GameMode.mazeMaster) assetPath = 'assets/mazes.json';
+        else if (mode == GameMode.colorMatch) assetPath = 'assets/color_match.json';
+
+        final String response = await rootBundle.loadString(assetPath);
         final List<dynamic> data = json.decode(response);
         levelData = data.firstWhere(
           (lvl) => lvl['level'] == targetLevel,
@@ -191,6 +230,7 @@ class GameNotifier extends StateNotifier<GameState> {
           id: (a['id'] as num).toInt(),
           path: arrowPath,
           arrowAtEnd: (a['arrowhead'] ?? 'last') == 'last',
+          colorIndex: (a['colorIndex'] as num?)?.toInt() ?? 0,
         );
       }).toList();
 
@@ -200,18 +240,57 @@ class GameNotifier extends StateNotifier<GameState> {
       // PERSISTENCE: Save playing stage so user returns here if app closes
       GameDataManager.savePlayingLevel(tLvl);
 
+      bool isHard = (levelData['isHardStage'] as bool?) ?? (tLvl % 5 == 0 && tLvl >= 5);
+
+      int? targetColor;
+      if (mode == GameMode.colorMatch && parsed.isNotEmpty) {
+        targetColor = parsed.first.colorIndex; // Set initial target color
+      }
+
+      int? savedTime;
+      if (force) {
+        GameDataManager.clearLevelTime(tLvl);
+      } else {
+        savedTime = await GameDataManager.loadLevelTime(tLvl);
+      }
+
       state = state.copyWith(
         level: tLvl,
+        gameMode: mode,
         arrows: parsed, chances: 3, gameOver: false, gridSize: gs,
         isLevelComplete: false,
+        isHardStage: isHard,
+        revealedCells: {},
+        targetColorIndex: targetColor,
       );
       _isProcessingTap = false;
-      _startTimer(tLvl);
+      _startTimer(tLvl, savedTime);
 
       // Validate solvability after loading
       _validateSolvability();
     } catch (e) {
-      debugPrint("JSON Load Error: $e");
+      // Error ignored in production
+    }
+  }
+
+  void handleTap(int x, int y) {
+    if (_isProcessingTap || state.gameOver || state.isLevelComplete) return;
+
+    final tappedArrow = state.arrows.firstWhere(
+      (a) => !a.isSolved && a.occupiedCells.contains('$x,$y'),
+      orElse: () => ArrowModel(id: -1, path: []), // Null-ish object
+    );
+
+    if (tappedArrow.id != -1) {
+      if (state.gameMode == GameMode.colorMatch && state.targetColorIndex != null) {
+        if (tappedArrow.colorIndex != state.targetColorIndex) {
+          // Play error if they tapped wrong color
+          HapticFeedback.heavyImpact();
+          SoundManager().playError();
+          return;
+        }
+      }
+      onArrowTapped(tappedArrow);
     }
   }
 
@@ -222,8 +301,109 @@ class GameNotifier extends StateNotifier<GameState> {
     HapticFeedback.lightImpact();
     SoundManager().playTap();
 
-    if (_checkCollision(tappedArrow)) {
-      // BLOCKED — red flash + lose chance
+    final dir = tappedArrow.flyDirection;
+    final head = tappedArrow.arrowheadPoint;
+    int x = head[0] + dir[0];
+    int y = head[1] + dir[1];
+    int gs = state.gridSize;
+    int steps = 0;
+
+    Set<String> blocked = {};
+    for (var other in state.arrows) {
+      if (other.id == tappedArrow.id || other.isSolved) continue;
+      blocked.addAll(other.occupiedCells);
+    }
+
+    bool clearToExit = true;
+    while (x >= 0 && x < gs && y >= 0 && y < gs) {
+      if (blocked.contains('$x,$y')) {
+        clearToExit = false;
+        break;
+      }
+      steps++;
+      x += dir[0];
+      y += dir[1];
+    }
+
+    if (clearToExit) {
+      // CLEAR — fly out
+      SoundManager().playClear();
+      state = state.copyWith(
+        points: state.points + 10,
+        arrows: state.arrows.map((a) =>
+          a.id == tappedArrow.id ? a.copyWith(isSolved: true) : a
+        ).toList(),
+      );
+
+      // Fast-reset processing flag to allow rapid-fire moves
+      _isProcessingTap = false;
+
+      // Physically remove the arrow after the animation completes
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        
+        final newRevealed = Set<String>.from(state.revealedCells)..addAll(tappedArrow.occupiedCells);
+        
+        final remaining = state.arrows.where((a) => !a.isSolved).toList();
+        if (remaining.isEmpty) {
+          if (state.isLevelComplete) return;
+
+          SoundManager().playLevelComplete();
+          int stars = 1;
+          if (state.totalTimeSeconds > 0) {
+            double ratio = state.timeRemainingSeconds / state.totalTimeSeconds;
+            if (ratio >= 0.8) {
+              stars = 3;
+            } else if (ratio >= 0.6) {
+              stars = 2;
+            }
+          }
+          state = state.copyWith(isLevelComplete: true, earnedStars: stars, revealedCells: newRevealed);
+          
+          if (state.gameMode == GameMode.speedRush) {
+            // Speed rush: Add 10s to timer, don't load next level automatically, wait for UI to do it
+            // Actually, we can load next random level automatically
+            int next = Random().nextInt(50) + 1;
+            Future.delayed(const Duration(milliseconds: 1000), () => loadLevel(next, force: true, mode: GameMode.speedRush));
+          } else {
+            int next = state.level + 1;
+            GameDataManager.saveProgress(next, state.points);
+            Future.delayed(const Duration(milliseconds: 2500), () => loadLevel(next, mode: state.gameMode));
+          }
+        } else {
+          int? newTargetColor = state.targetColorIndex;
+          if (state.gameMode == GameMode.colorMatch) {
+            // Check if any arrows of current color are left
+            bool hasCurrentColor = remaining.any((a) => a.colorIndex == state.targetColorIndex);
+            if (!hasCurrentColor) {
+              // Pick the next available color
+              newTargetColor = remaining.first.colorIndex;
+            }
+          }
+
+          state = state.copyWith(
+            arrows: state.arrows.where((a) => a.id != tappedArrow.id || !a.isSolved).toList(),
+            revealedCells: newRevealed,
+            targetColorIndex: newTargetColor,
+          );
+        }
+      });
+    } else if (steps > 0) {
+      // PARTIAL MOVE — move as far as possible
+      final newRevealed = Set<String>.from(state.revealedCells)..addAll(tappedArrow.occupiedCells);
+      final newPath = tappedArrow.path.map((p) => [p[0] + dir[0] * steps, p[1] + dir[1] * steps]).toList();
+      
+      state = state.copyWith(
+        arrows: state.arrows.map((a) => a.id == tappedArrow.id ? a.copyWith(path: newPath) : a).toList(),
+        revealedCells: newRevealed,
+      );
+      
+      // Briefly pause to show movement before allowing next tap
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _isProcessingTap = false;
+      });
+    } else {
+      // BLOCKED IMMEDIATELY — error animation
       HapticFeedback.heavyImpact();
       SoundManager().playError();
       int newChances = state.chances - 1;
@@ -239,64 +419,9 @@ class GameNotifier extends StateNotifier<GameState> {
         );
         _isProcessingTap = false;
       });
-    } else {
-      // CLEAR — fly out
-      SoundManager().playClear();
-      state = state.copyWith(
-        points: state.points + 10,
-        arrows: state.arrows.map((a) =>
-          a.id == tappedArrow.id ? a.copyWith(isSolved: true) : a
-        ).toList(),
-      );
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (!mounted) return;
-        final remaining = state.arrows.where((a) => !a.isSolved).toList();
-        if (remaining.isEmpty) {
-          SoundManager().playLevelComplete();
-          int stars = 1;
-          if (state.totalTimeSeconds > 0) {
-            double ratio = state.timeRemainingSeconds / state.totalTimeSeconds;
-            if (ratio >= 0.8) {
-              stars = 3;
-            } else if (ratio >= 0.6) {
-              stars = 2;
-            }
-          }
-          state = state.copyWith(isLevelComplete: true, earnedStars: stars);
-          int next = state.level + 1;
-          GameDataManager.saveProgress(next, state.points);
-          // Auto advance after 2.5 seconds of animation
-          Future.delayed(const Duration(milliseconds: 2500), () => loadLevel(next));
-        } else {
-          state = state.copyWith(arrows: remaining);
-        }
-        _isProcessingTap = false;
-      });
     }
   }
 
-  /// Segment-to-segment collision: ray-cast from arrowhead in fly direction,
-  /// checking every cell against all other unsolved arrows' occupied cells.
-  bool _checkCollision(ArrowModel tapped) {
-    Set<String> blocked = {};
-    for (var other in state.arrows) {
-      if (other.id == tapped.id || other.isSolved) continue;
-      blocked.addAll(other.occupiedCells);
-    }
-
-    final dir = tapped.flyDirection;
-    final head = tapped.arrowheadPoint;
-    int x = head[0] + dir[0];
-    int y = head[1] + dir[1];
-    int gs = state.gridSize;
-
-    while (x >= 0 && x < gs && y >= 0 && y < gs) {
-      if (blocked.contains('$x,$y')) return true;
-      x += dir[0];
-      y += dir[1];
-    }
-    return false;
-  }
 
   /// Load a custom level from the editor (for Test Play)
   void loadCustomLevel(List<ArrowModel> arrows, int gridSize) {
@@ -316,19 +441,28 @@ class GameNotifier extends StateNotifier<GameState> {
     _validateSolvability();
   }
 
-  void tryAgain() => loadLevel(state.level);
+  void tryAgain() {
+    GameDataManager.clearLevelTime(state.level);
+    loadLevel(state.level, force: true, mode: state.gameMode);
+  }
 
-  void _startTimer(int level) {
+  void _startTimer(int level, [int? savedTime]) {
     _levelTimer?.cancel();
-    // Example logical timer: 60s for level 1, +30s per level, max 300s
-    int totalSecs = (level <= 5) ? 60 + (level - 1) * 30 : 180 + (level - 5) * 20;
-    if (totalSecs > 300) totalSecs = 300;
-    // For custom test levels (level 99)
+    
+    int totalSecs;
+    if (level > 20) {
+      totalSecs = 600; // 10 minutes
+    } else {
+      totalSecs = (level <= 5) ? 60 + (level - 1) * 30 : 180 + (level - 5) * 20;
+      if (totalSecs > 300) totalSecs = 300;
+    }
     if (level == 99) totalSecs = 300;
+
+    int initialTime = savedTime ?? totalSecs;
 
     state = state.copyWith(
       totalTimeSeconds: totalSecs,
-      timeRemainingSeconds: totalSecs,
+      timeRemainingSeconds: initialTime,
       outOfTime: false,
     );
 
@@ -341,8 +475,10 @@ class GameNotifier extends StateNotifier<GameState> {
       if (rem <= 0) {
         timer.cancel();
         state = state.copyWith(timeRemainingSeconds: 0, gameOver: true, outOfTime: true);
+        GameDataManager.clearLevelTime(level);
       } else {
         state = state.copyWith(timeRemainingSeconds: rem);
+        GameDataManager.saveLevelTime(level, rem);
       }
     });
   }
@@ -350,43 +486,11 @@ class GameNotifier extends StateNotifier<GameState> {
   /// Validates that at least one arrow has a clear flight path.
   /// Logs WHICH arrows are free for easy debugging.
   void _validateSolvability() {
-    final unsolved = state.arrows.where((a) => !a.isSolved).toList();
-    List<int> freeIds = [];
-
-    for (var arrow in unsolved) {
-      if (!_checkCollisionFor(arrow, unsolved)) {
-        freeIds.add(arrow.id);
-      }
-    }
-
-    if (freeIds.isEmpty && unsolved.isNotEmpty) {
-      debugPrint('⚠️ SOLVABILITY WARNING: Level ${state.level} has NO free arrows! (${unsolved.length} total)');
-    } else {
-      debugPrint('✅ Level ${state.level}: ${freeIds.length} free arrows $freeIds out of ${unsolved.length}');
-    }
+    // Solvability validation removed in production
   }
 
   /// Collision check against a specific list of arrows (for solvability validation)
-  bool _checkCollisionFor(ArrowModel target, List<ArrowModel> arrowList) {
-    Set<String> blocked = {};
-    for (var other in arrowList) {
-      if (other.id == target.id) continue;
-      blocked.addAll(other.occupiedCells);
-    }
-
-    final dir = target.flyDirection;
-    final head = target.arrowheadPoint;
-    int x = head[0] + dir[0];
-    int y = head[1] + dir[1];
-    int gs = state.gridSize;
-
-    while (x >= 0 && x < gs && y >= 0 && y < gs) {
-      if (blocked.contains('$x,$y')) return true;
-      x += dir[0];
-      y += dir[1];
-    }
-    return false;
-  }
+  // Removed unreferenced _checkCollisionFor for production cleanup
 }
 
 final gameStateProvider = StateNotifierProvider<GameNotifier, GameState>((ref) {

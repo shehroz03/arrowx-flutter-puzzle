@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class PuzzleLevel {
@@ -16,7 +15,7 @@ class PuzzleLevel {
   });
 
   factory PuzzleLevel.fromJson(Map<String, dynamic> json) {
-    // 2D Array ko JSON se Flutter List mein convert karna
+    // Convert 2D Array from JSON to Flutter List
     var gridJson = json['grid'] as List;
     List<List<String>> parsedGrid = gridJson.map((row) {
       return (row as List).map((cell) => cell.toString()).toList();
@@ -34,28 +33,28 @@ class PuzzleLevel {
 class LevelManager {
   static List<PuzzleLevel> _levels = [];
 
-  // Yeh function game start hone par aik dafa call hoga
+  // This function is called once when the game starts
   static Future<void> loadLevels() async {
     try {
-      // JSON file read karein
+      // Read JSON file
       String jsonString = await rootBundle.loadString('assets/levels.json');
       Map<String, dynamic> jsonResponse = jsonDecode(jsonString);
       
       var levelsArray = jsonResponse['levels'] as List;
       _levels = levelsArray.map((levelJson) => PuzzleLevel.fromJson(levelJson)).toList();
       
-      debugPrint("Success: ${_levels.length} levels loaded from JSON!");
+      // Levels loaded
     } catch (e) {
-      debugPrint("Error loading levels: $e");
+      // Error ignored in production
     }
   }
 
-  // Kisi specific level ka data get karne ke liye
+  // To get data for a specific level
   static PuzzleLevel? getLevel(int levelId) {
     try {
       return _levels.firstWhere((lvl) => lvl.id == levelId);
     } catch (e) {
-      return null; // Level nahi mila
+      return null; // Level not found
     }
   }
 }

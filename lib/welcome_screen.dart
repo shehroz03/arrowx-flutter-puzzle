@@ -8,7 +8,7 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-// SingleTickerProviderStateMixin lagana zaroori hai continuous animations ke liye
+// SingleTickerProviderStateMixin is required for continuous animations
 class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _floatingAnimation;
@@ -18,18 +18,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     
-    // Animation Controller jo 2 second mein cycle poora karke wapis reverse hota hai
+    // Animation Controller that completes a cycle in 2 seconds and reverses
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true); 
 
-    // Logo ko hawa mein upar neeche tairane ke liye (Floating Effect)
+    // For floating the logo up and down (Floating Effect)
     _floatingAnimation = Tween<double>(begin: -15, end: 15).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
 
-    // Button ko bada chota (Pulse) karne ke liye
+    // For pulsing the button (Pulse Effect)
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
@@ -37,7 +37,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
 
   @override
   void dispose() {
-    _controller.dispose(); // Memory leak se bachne ke liye
+    _controller.dispose(); // To prevent memory leaks
     super.dispose();
   }
 
@@ -46,7 +46,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
     return Scaffold(
       body: Container(
         width: double.infinity,
-        // Game style Radial Background (Center se dark blue, bahar ki taraf blackish)
+        // Game style Radial Background (Dark blue from center, blackish outward)
         decoration: const BoxDecoration(
           gradient: RadialGradient(
             colors: [Color(0xFF2A2A4A), Color(0xFF0B0B15)],
@@ -85,7 +85,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                         ],
                       ),
                       child: const Icon(
-                        Icons.extension_rounded, // Aap yahan Icons.rocket_launch bhi laga sakte hain
+                        Icons.extension_rounded, // You can also use Icons.rocket_launch here
                         size: 90,
                         color: Colors.white,
                       ),
@@ -134,7 +134,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     scale: _pulseAnimation.value,
                     child: GestureDetector(
                       onTap: () {
-                        // User ko seedha Level Selection par bhej dein
+                        // Navigate user directly to Level Selection
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
