@@ -16,6 +16,8 @@ class GameBoardScreen extends ConsumerStatefulWidget {
 }
 
 class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
+  TransformationController _transformationController = TransformationController();
+  int _lastLevelSetup = -1;
   void _showThemePicker(BuildContext context, WidgetRef ref, SettingsState settings) {
     showModalBottomSheet(
       context: context,
@@ -141,6 +143,7 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
   @override
   void dispose() {
     SoundManager().stopBGM();
+    _transformationController.dispose();
     super.dispose();
   }
 
@@ -234,12 +237,8 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                     Row(
                       children: List.generate(3, (i) => Padding(
                         padding: const EdgeInsets.only(right: 4),
-                        child: Icon(
-                          Icons.water_drop,
-                          color: i < gameState.chances
-                              ? const Color(0xFF4A90D9)
-                              : Colors.grey.shade300,
-                          size: 30,
+                        child: AnimatedHeartWidget(
+                          isAlive: i < gameState.chances,
                         ),
                       )),
                     ),
@@ -293,36 +292,51 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
               Expanded(
                 child: Builder(
                   builder: (context) {
-                    int lvlMinX = 0, lvlMinY = 0, lvlMaxX = gs, lvlMaxY = gs;
-                    if (gameState.arrows.isNotEmpty) {
-                      lvlMinX = math.min(0, gameState.arrows.map((a) => a.bounds[0]).reduce(math.min));
-                      lvlMinY = math.min(0, gameState.arrows.map((a) => a.bounds[1]).reduce(math.min));
-                      lvlMaxX = math.max(gs, gameState.arrows.map((a) => a.bounds[2]).reduce(math.max));
-                      lvlMaxY = math.max(gs, gameState.arrows.map((a) => a.bounds[3]).reduce(math.max));
-                    }
-                    
-                    final gridW = (lvlMaxX - lvlMinX) * cs;
-                    final gridH = (lvlMaxY - lvlMinY) * cs;
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        int lvlMinX = 0, lvlMinY = 0, lvlMaxX = gs, lvlMaxY = gs;
+                        if (gameState.arrows.isNotEmpty) {
+                          lvlMinX = math.min(0, gameState.arrows.map((a) => a.bounds[0]).reduce(math.min));
+                          lvlMinY = math.min(0, gameState.arrows.map((a) => a.bounds[1]).reduce(math.min));
+                          lvlMaxX = math.max(gs, gameState.arrows.map((a) => a.bounds[2]).reduce(math.max));
+                          lvlMaxY = math.max(gs, gameState.arrows.map((a) => a.bounds[3]).reduce(math.max));
+                        }
+                        
+                        final gridW = (lvlMaxX - lvlMinX) * cs;
+                        final gridH = (lvlMaxY - lvlMinY) * cs;
 
-                    return InteractiveViewer(
-                  boundaryMargin: const EdgeInsets.all(100),
-                  minScale: 0.2,
-                  maxScale: 5.0,
-                  constrained: false, // Changed from true to allow zooming/panning large grids
+                        if (_lastLevelSetup != gameState.level) {
+                          _lastLevelSetup = gameState.level;
+                          final double scaleX = constraints.maxWidth / gridW;
+                          final double scaleY = constraints.maxHeight / gridH;
+                          final double initialScale = math.min(scaleX, scaleY).clamp(0.05, 1.0);
+                          final double offsetX = (constraints.maxWidth - (gridW * initialScale)) / 2;
+                          final double offsetY = (constraints.maxHeight - (gridH * initialScale)) / 2;
+                          
+                          final initialMatrix = Matrix4.identity()
+                            ..translate(offsetX, offsetY)
+                            ..scale(initialScale);
+                            
+                          _transformationController = TransformationController(initialMatrix);
+                        }
+
+                        return InteractiveViewer(
+                          transformationController: _transformationController,
+                          boundaryMargin: const EdgeInsets.all(2000),
+                          minScale: 0.05,
+                          maxScale: 5.0,
+                          constrained: false, // Changed from true to allow zooming/panning large grids
                   child: Center(
                     child: TweenAnimationBuilder<double>(
                       key: ValueKey(gameState.level), // Restart animation on level change
-                      tween: Tween(begin: 0.8, end: 1.0),
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.elasticOut,
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
                       builder: (context, value, child) {
                         if (value == 1.0) return child!;
-                        return Transform.scale(
-                          scale: value,
-                          child: Opacity(
-                            opacity: ((value - 0.8) / 0.2).clamp(0.0, 1.0),
-                            child: child,
-                          ),
+                        return Opacity(
+                          opacity: value,
+                          child: child,
                         );
                       },
                       child: SizedBox(
@@ -385,7 +399,7 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                                 child: TweenAnimationBuilder<double>(
                                   key: ValueKey('${gameState.level}_${arrow.id}'),
                                   tween: Tween(begin: 0.0, end: 1.0),
-                                  duration: Duration(milliseconds: 800 + (index * 100)),
+                                  duration: Duration(milliseconds: 600 + math.min(index * 15, 1200).toInt()),
                                   curve: Curves.elasticOut,
                                   builder: (context, value, child) {
                                     if (value == 1.0) return child!;
@@ -439,29 +453,20 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                   ),
                 );
               },
-            ),
-          ),
-          if (gameState.gameOver)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  color: Colors.redAccent.withValues(alpha: 0.9),
-                  child: Column(children: [
-                    Text(gameState.outOfTime ? "TIME'S UP!" : "OUT OF MOVES!",
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: () => notifier.tryAgain(),
-                      child: const Text("TRY AGAIN"),
-                    ),
-                  ]),
-                ),
+            );
+          },
+        ),
+      ),
             ],
           ),
           ),
           if (gameState.isLevelComplete)
             Positioned.fill(
               child: _LevelCompleteOverlay(gameState: gameState, notifier: notifier),
+            ),
+          if (gameState.gameOver)
+            Positioned.fill(
+              child: _GameOverOverlay(gameState: gameState, notifier: notifier),
             ),
         ],
       ),
@@ -704,4 +709,197 @@ class StarryBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _GameOverOverlay extends StatefulWidget {
+  final GameState gameState;
+  final GameNotifier notifier;
+  const _GameOverOverlay({required this.gameState, required this.notifier});
+
+  @override
+  State<_GameOverOverlay> createState() => _GameOverOverlayState();
+}
+
+class _GameOverOverlayState extends State<_GameOverOverlay> with TickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _scaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
+    );
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isTimeUp = widget.gameState.outOfTime;
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.6),
+        alignment: Alignment.center,
+        child: ScaleTransition(
+          scale: _scaleAnim,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 40),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.redAccent.withValues(alpha: 0.4),
+                  blurRadius: 30,
+                  spreadRadius: 10,
+                )
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isTimeUp ? Icons.timer_off_rounded : Icons.heart_broken_rounded,
+                  size: 80,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  isTimeUp ? "TIME'S UP!" : "OUT OF MOVES!",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isTimeUp ? "You ran out of time." : "You lost all your lives.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 8,
+                      shadowColor: Colors.redAccent.withValues(alpha: 0.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    onPressed: () {
+                      SoundManager().playTap();
+                      widget.notifier.tryAgain();
+                    },
+                    child: const Text(
+                      "TRY AGAIN",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AnimatedHeartWidget extends StatefulWidget {
+  final bool isAlive;
+  const AnimatedHeartWidget({super.key, required this.isAlive});
+
+  @override
+  State<AnimatedHeartWidget> createState() => _AnimatedHeartWidgetState();
+}
+
+class _AnimatedHeartWidgetState extends State<AnimatedHeartWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.4).chain(CurveTween(curve: Curves.easeOut)), weight: 40),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.4, end: 0.0).chain(CurveTween(curve: Curves.easeIn)), weight: 60),
+    ]).animate(_ctrl);
+    
+    _fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
+    );
+  }
+
+  @override
+  void didUpdateWidget(AnimatedHeartWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isAlive && !widget.isAlive) {
+      // Life lost -> trigger breaking animation
+      _ctrl.forward(from: 0.0);
+    } else if (!oldWidget.isAlive && widget.isAlive) {
+      // Life restored
+      _ctrl.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isAlive) {
+      return const Icon(Icons.favorite, color: Colors.redAccent, size: 30);
+    } else {
+      return AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) {
+          if (_ctrl.isAnimating) {
+            return Transform.scale(
+              scale: _scaleAnim.value,
+              child: Opacity(
+                opacity: _fadeAnim.value,
+                child: const Icon(Icons.heart_broken, color: Colors.redAccent, size: 30),
+              ),
+            );
+          } else {
+            return Icon(Icons.favorite_border, color: Colors.grey.withValues(alpha: 0.3), size: 30);
+          }
+        },
+      );
+    }
+  }
 }

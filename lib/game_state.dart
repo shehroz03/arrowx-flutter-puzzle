@@ -388,20 +388,6 @@ class GameNotifier extends StateNotifier<GameState> {
           );
         }
       });
-    } else if (steps > 0) {
-      // PARTIAL MOVE — move as far as possible
-      final newRevealed = Set<String>.from(state.revealedCells)..addAll(tappedArrow.occupiedCells);
-      final newPath = tappedArrow.path.map((p) => [p[0] + dir[0] * steps, p[1] + dir[1] * steps]).toList();
-      
-      state = state.copyWith(
-        arrows: state.arrows.map((a) => a.id == tappedArrow.id ? a.copyWith(path: newPath) : a).toList(),
-        revealedCells: newRevealed,
-      );
-      
-      // Briefly pause to show movement before allowing next tap
-      Future.delayed(const Duration(milliseconds: 200), () {
-        _isProcessingTap = false;
-      });
     } else {
       // BLOCKED IMMEDIATELY — error animation
       HapticFeedback.heavyImpact();

@@ -5,7 +5,6 @@ class SoundManager {
   factory SoundManager() => _instance;
   SoundManager._internal();
 
-  final AudioPlayer _sfxPlayer = AudioPlayer();
   final AudioPlayer _musicPlayer = AudioPlayer();
 
   bool _isMuted = false;
@@ -17,7 +16,6 @@ class SoundManager {
     if (_isMuted == shouldMute) return;
     _isMuted = shouldMute;
     if (_isMuted) {
-      _sfxPlayer.stop();
       _musicPlayer.stop();
     } else {
       startBGM(); // Resume BGM if unmuted
@@ -60,8 +58,9 @@ class SoundManager {
 
   Future<void> _playSound(String assetName) async {
     try {
-      // Use low latency for SFX to avoid glitches
-      await _sfxPlayer.play(AssetSource('sounds/$assetName'), mode: PlayerMode.lowLatency);
+      final player = AudioPlayer();
+      await player.play(AssetSource('sounds/$assetName'));
+      player.onPlayerComplete.first.then((_) => player.dispose());
     } catch (e) {
       // Audio load failed
     }
