@@ -44,11 +44,16 @@ class GameDataManager {
   }
 
   // 1. Function to save game data
-  static Future<void> saveProgress(int currentLevel, int points) async {
+  static Future<void> saveProgress(int nextLevel, int points) async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Save new data
-    await prefs.setInt(_levelKey, currentLevel);
+    // Save new data, but don't downgrade level if replaying
+    int savedLevel = prefs.getInt(_levelKey) ?? 1;
+    if (nextLevel > savedLevel) {
+      await prefs.setInt(_levelKey, nextLevel);
+    }
+    
+    // Save points
     await prefs.setInt(_pointsKey, points);
   }
 

@@ -222,8 +222,10 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
         children: [
           if (gameState.level >= 11 && gameState.level <= 14)
             Positioned.fill(
-              child: CustomPaint(
-                painter: StarryBackgroundPainter(),
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: StarryBackgroundPainter(),
+                ),
               ),
             ),
           SafeArea(
@@ -235,7 +237,7 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: List.generate(3, (i) => Padding(
+                      children: List.generate(gameState.level > 30 ? 4 : 3, (i) => Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: AnimatedHeartWidget(
                           isAlive: i < gameState.chances,
@@ -350,14 +352,16 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                               top: -lvlMinY * cs,
                               width: gs * cs,
                               height: gs * cs,
-                              child: CustomPaint(
-                                painter: GridPainter(
-                                  gridSize: gs, 
-                                  cellSize: cs, 
-                                  dotColor: theme.dot,
-                                  isHardStage: gameState.isHardStage,
-                                  occupiedCells: gameState.allOccupiedCells,
-                                  revealedCells: gameState.revealedCells,
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: GridPainter(
+                                    gridSize: gs, 
+                                    cellSize: cs, 
+                                    dotColor: theme.dot,
+                                    isHardStage: gameState.isHardStage,
+                                    occupiedCells: gameState.allOccupiedCells,
+                                    revealedCells: gameState.revealedCells,
+                                  ),
                                 ),
                               ),
                             ),
@@ -367,8 +371,10 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                                 top: -lvlMinY * cs,
                                 width: gs * cs,
                                 height: gs * cs,
-                                child: CustomPaint(
-                                  painter: GuidelinePainter(gridSize: gs, cellSize: cs, color: theme.dot),
+                                child: RepaintBoundary(
+                                  child: CustomPaint(
+                                    painter: GuidelinePainter(gridSize: gs, cellSize: cs, color: theme.dot),
+                                  ),
                                 ),
                               ),
                             ...gameState.arrows.asMap().entries.map((entry) {
@@ -415,23 +421,25 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       Positioned.fill(
-                                        child: ArrowWidget(
-                                          arrow: arrow,
-                                          cellSize: cs,
-                                          offsetX: minX,
-                                          offsetY: minY,
-                                          arrowColor: gameState.level > 10 
-                                              ? _getArrowColor(arrow.id % 5, theme.arrow) 
-                                              : _getArrowColor(arrow.colorIndex, theme.arrow),
-                                          padding: pad,
-                                          isBigArrow: gameState.level > 10,
-                                          isNeon: gameState.level >= 11 && gameState.level <= 14,
-                                          onTap: () {
-                                            if (settings.isVibrationOn) {
-                                              HapticFeedback.lightImpact();
-                                            }
-                                            notifier.onArrowTapped(arrow);
-                                          },
+                                        child: RepaintBoundary(
+                                          child: ArrowWidget(
+                                            arrow: arrow,
+                                            cellSize: cs,
+                                            offsetX: minX,
+                                            offsetY: minY,
+                                            arrowColor: gameState.level > 10 
+                                                ? _getArrowColor(arrow.id % 5, theme.arrow) 
+                                                : _getArrowColor(arrow.colorIndex, theme.arrow),
+                                            padding: pad,
+                                            isBigArrow: gameState.level > 10,
+                                            isNeon: gameState.level >= 11 && gameState.level <= 14,
+                                            onTap: () {
+                                              if (settings.isVibrationOn) {
+                                                HapticFeedback.lightImpact();
+                                              }
+                                              notifier.onArrowTapped(arrow);
+                                            },
+                                          ),
                                         ),
                                       ),
                                       // Tutorial Hand Animation
@@ -554,9 +562,11 @@ class _LevelCompleteOverlayState extends State<_LevelCompleteOverlay> with Ticke
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildStar(1, 60, _star1Anim.value),
-                        _buildStar(2, 100, _star2Anim.value),
-                        _buildStar(3, 60, _star3Anim.value),
+                        _buildStar(1, 70, _star1Anim.value, -0.3),
+                        const SizedBox(width: 10),
+                        _buildStar(2, 110, _star2Anim.value, 0.0),
+                        const SizedBox(width: 10),
+                        _buildStar(3, 70, _star3Anim.value, 0.3),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -621,17 +631,23 @@ class _LevelCompleteOverlayState extends State<_LevelCompleteOverlay> with Ticke
     );
   }
 
-  Widget _buildStar(int threshold, double size, double scale) {
+  Widget _buildStar(int threshold, double size, double scale, double tiltAngle) {
     final bool active = widget.gameState.earnedStars >= threshold;
     return Transform.scale(
       scale: active ? scale : scale * 0.8,
-      child: Opacity(
-        opacity: scale.clamp(0.0, 1.0) * (active ? 1.0 : 0.4),
-        child: Icon(
-          Icons.star_rounded, 
-          color: active ? Colors.amber : Colors.grey.shade400, 
-          size: size,
-          shadows: active ? const [Shadow(color: Colors.amber, blurRadius: 25)] : [],
+      child: Transform.rotate(
+        angle: tiltAngle,
+        child: Opacity(
+          opacity: scale.clamp(0.0, 1.0) * (active ? 1.0 : 0.4),
+          child: Icon(
+            Icons.star_rounded, 
+            color: active ? Colors.amber : Colors.grey.shade400, 
+            size: size,
+            shadows: active ? const [
+              Shadow(color: Colors.amberAccent, blurRadius: 20),
+              Shadow(color: Colors.orangeAccent, blurRadius: 40)
+            ] : [],
+          ),
         ),
       ),
     );
@@ -754,78 +770,81 @@ class _GameOverOverlayState extends State<_GameOverOverlay> with TickerProviderS
         alignment: Alignment.center,
         child: ScaleTransition(
           scale: _scaleAnim,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 40),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.redAccent.withValues(alpha: 0.4),
-                  blurRadius: 30,
-                  spreadRadius: 10,
-                )
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isTimeUp ? Icons.timer_off_rounded : Icons.heart_broken_rounded,
-                  size: 80,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  isTimeUp ? "TIME'S UP!" : "OUT OF MOVES!",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black87,
-                    letterSpacing: 1.2,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.redAccent.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    spreadRadius: 8,
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isTimeUp ? Icons.timer_off_rounded : Icons.heart_broken_rounded,
+                    size: 60,
+                    color: Colors.redAccent,
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isTimeUp ? "You ran out of time." : "You lost all your lives.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 8,
-                      shadowColor: Colors.redAccent.withValues(alpha: 0.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    onPressed: () {
-                      SoundManager().playTap();
-                      widget.notifier.tryAgain();
-                    },
-                    child: const Text(
-                      "TRY AGAIN",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        letterSpacing: 1.5,
-                      ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isTimeUp ? "TIME'S UP!" : "OUT OF MOVES!",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black87,
+                      letterSpacing: 1.0,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    isTimeUp ? "You ran out of time." : "You lost all your lives.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 6,
+                        shadowColor: Colors.redAccent.withValues(alpha: 0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () {
+                        SoundManager().playTap();
+                        widget.notifier.tryAgain();
+                      },
+                      child: const Text(
+                        "TRY AGAIN",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

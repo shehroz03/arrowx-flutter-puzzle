@@ -257,7 +257,7 @@ class GameNotifier extends StateNotifier<GameState> {
       state = state.copyWith(
         level: tLvl,
         gameMode: mode,
-        arrows: parsed, chances: 3, gameOver: false, gridSize: gs,
+        arrows: parsed, chances: tLvl > 30 ? 4 : 3, gameOver: false, gridSize: gs,
         isLevelComplete: false,
         isHardStage: isHard,
         revealedCells: {},
@@ -418,7 +418,7 @@ class GameNotifier extends StateNotifier<GameState> {
         path: List<List<int>>.from(a.path.map((p) => List<int>.from(p))),
         arrowAtEnd: a.arrowAtEnd,
       )).toList(),
-      chances: 3,
+      chances: 4,
       gameOver: false,
       gridSize: gridSize,
       isLevelComplete: false,

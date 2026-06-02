@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'home_screen.dart';
 import 'game_data.dart';
 import 'game_board.dart';
+import 'game_state.dart';
 import 'level_selection_screen.dart';
 import 'settings_screen.dart';
 
-class SplashScreenSequence extends StatefulWidget {
+class SplashScreenSequence extends ConsumerStatefulWidget {
   const SplashScreenSequence({super.key});
 
   @override
-  State<SplashScreenSequence> createState() => _SplashScreenSequenceState();
+  ConsumerState<SplashScreenSequence> createState() => _SplashScreenSequenceState();
 }
 
-class _SplashScreenSequenceState extends State<SplashScreenSequence> with TickerProviderStateMixin {
+class _SplashScreenSequenceState extends ConsumerState<SplashScreenSequence> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   int _sequenceIndex = 0; // 0: ArrowX, 1: Motto
 
@@ -45,6 +47,7 @@ class _SplashScreenSequenceState extends State<SplashScreenSequence> with Ticker
 
   void _navigateToHome() async {
     String lastScreen = await GameDataManager.loadLastScreen();
+    int playingLevel = await GameDataManager.loadPlayingLevel();
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
@@ -61,6 +64,7 @@ class _SplashScreenSequenceState extends State<SplashScreenSequence> with Ticker
        Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
         if (lastScreen == 'game') {
+          ref.read(gameStateProvider.notifier).loadLevel(playingLevel);
           Navigator.push(context, MaterialPageRoute(builder: (_) => const GameBoardScreen()));
         } else if (lastScreen == 'level_selection') {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const LevelSelectionScreen()));

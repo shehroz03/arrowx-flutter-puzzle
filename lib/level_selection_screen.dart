@@ -82,13 +82,14 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF14142B),
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Select Level", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)),
-            Text("Total Points: $_totalPoints 🌟", style: const TextStyle(fontSize: 14, color: Colors.amberAccent)),
+            Text("Total Points: $_totalPoints 💎", style: const TextStyle(fontSize: 14, color: Colors.amberAccent)),
           ],
         ),
         actions: [
@@ -118,7 +119,7 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
                 ),
                 itemBuilder: (context, index) {
                   int levelNumber = index + 1;
-                  bool isUnlocked = true; // ALL STAGES OPEN FOR TESTING
+                  bool isUnlocked = levelNumber <= _unlockedLevel;
                   bool isCurrentLevel = levelNumber == _unlockedLevel;
 
                   return _buildLevelCard(levelNumber, isUnlocked, isCurrentLevel);
@@ -145,7 +146,10 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const GameBoardScreen()),
-              ).then((_) => GameDataManager.saveLastScreen('level_selection'));
+              ).then((_) {
+                GameDataManager.saveLastScreen('level_selection');
+                _loadData();
+              });
               debugPrint("Level $level Start!");
             } else {
               // Show message when tapping a locked level
