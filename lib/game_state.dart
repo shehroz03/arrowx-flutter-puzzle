@@ -209,7 +209,7 @@ class GameNotifier extends StateNotifier<GameState> {
         );
       }
 
-      final List<ArrowModel> parsed = (levelData['arrows'] as List).map((a) {
+      List<ArrowModel> parsed = (levelData['arrows'] as List).map((a) {
         List<List<int>> arrowPath;
 
         if (a.containsKey('path')) {
@@ -248,10 +248,17 @@ class GameNotifier extends StateNotifier<GameState> {
       }
 
       int? savedTime;
+      List<int>? remainingArrowIds;
       if (force) {
         GameDataManager.clearLevelTime(tLvl);
+        GameDataManager.clearRemainingArrows(tLvl);
       } else {
         savedTime = await GameDataManager.loadLevelTime(tLvl);
+        remainingArrowIds = await GameDataManager.loadRemainingArrows(tLvl);
+      }
+
+      if (remainingArrowIds != null) {
+        parsed = parsed.where((a) => remainingArrowIds!.contains(a.id)).toList();
       }
 
       state = state.copyWith(
@@ -359,6 +366,7 @@ class GameNotifier extends StateNotifier<GameState> {
             }
           }
           state = state.copyWith(isLevelComplete: true, earnedStars: stars, revealedCells: newRevealed);
+          GameDataManager.clearRemainingArrows(state.level);
           
           if (state.gameMode == GameMode.speedRush) {
             // Speed rush: Add 10s to timer, don't load next level automatically, wait for UI to do it
@@ -386,6 +394,7 @@ class GameNotifier extends StateNotifier<GameState> {
             revealedCells: newRevealed,
             targetColorIndex: newTargetColor,
           );
+          GameDataManager.saveRemainingArrows(state.level, state.arrows.where((a) => a.id != tappedArrow.id).map((a) => a.id).toList());
         }
       });
     } else {
@@ -429,6 +438,7 @@ class GameNotifier extends StateNotifier<GameState> {
 
   void tryAgain() {
     GameDataManager.clearLevelTime(state.level);
+    GameDataManager.clearRemainingArrows(state.level);
     loadLevel(state.level, force: true, mode: state.gameMode);
   }
 

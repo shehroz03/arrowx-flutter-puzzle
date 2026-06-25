@@ -7,6 +7,7 @@ class GameDataManager {
   static const String _screenKey = 'last_screen';
   static const String _playingLevelKey = 'playing_level';
   static const String _levelTimeKey = 'level_time_';
+  static const String _remainingArrowsKey = 'rem_arrows_lvl_';
 
   static Future<void> saveLastScreen(String screen) async {
     final prefs = await SharedPreferences.getInstance();
@@ -41,6 +42,24 @@ class GameDataManager {
   static Future<void> clearLevelTime(int level) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('$_levelTimeKey$level');
+  }
+
+  static Future<void> saveRemainingArrows(int level, List<int> arrowIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_remainingArrowsKey$level', arrowIds.join(','));
+  }
+
+  static Future<List<int>?> loadRemainingArrows(int level) async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString('$_remainingArrowsKey$level');
+    if (str == null) return null;
+    if (str.isEmpty) return [];
+    return str.split(',').map((e) => int.parse(e)).toList();
+  }
+
+  static Future<void> clearRemainingArrows(int level) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_remainingArrowsKey$level');
   }
 
   // 1. Function to save game data
