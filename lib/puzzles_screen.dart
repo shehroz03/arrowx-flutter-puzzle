@@ -8,9 +8,6 @@ import 'sound_manager.dart';
 import 'iq_test_screen.dart';
 import 'maze_master_screen.dart';
 import 'color_match_screen.dart';
-import 'game_board.dart';
-import 'game_state.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PuzzlesScreen extends ConsumerWidget {
   const PuzzlesScreen({super.key});
@@ -305,17 +302,6 @@ class PuzzlesScreen extends ConsumerWidget {
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Coming Soon! Stay tuned.", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E56D0),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
 }
 
 class _PuzzleCategoryCard extends StatelessWidget {

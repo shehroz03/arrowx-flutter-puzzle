@@ -120,7 +120,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
       const SizedBox(height: 10),
       Container(width: 56, height: 56,
         decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kP, _kP2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))]),
+          borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))]),
         child: const Center(child: Text('⚡', style: TextStyle(fontSize: 28)))),
       const SizedBox(height: 14),
       const Text('Speed Rush', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF1a1a2e))),
@@ -155,7 +155,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
       // Header
       Container(margin: const EdgeInsets.all(12), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12)]),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 12)]),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('SCORE', style: TextStyle(color: Colors.grey[400], fontSize: 10, letterSpacing: 1)),
@@ -182,10 +182,10 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
         offset: Offset(_shakeAnim.value * sin(_shakeCtrl.value * pi * 4), 0), child: child),
         child: Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 20)]),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 20)]),
           child: Column(children: [
             if (_combo >= 3) Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(color: _kP.withOpacity(.1), borderRadius: BorderRadius.circular(99)),
+              decoration: BoxDecoration(color: _kP.withValues(alpha: .1), borderRadius: BorderRadius.circular(99)),
               child: Text('🔥 $_combo Combo! +${1 + _combo ~/ 3}x', style: const TextStyle(color: _kP, fontWeight: FontWeight.w700, fontSize: 13))),
             Text(_equation, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Color(0xFF1a1a2e))),
           ])),
@@ -202,7 +202,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
             onTap: () => _pick(i, val),
             child: AnimatedContainer(duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 10)]),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 10)]),
               child: Center(child: Text('$val', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg)))),
           );
         }))),
@@ -221,7 +221,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
       Container(width: 110, height: 110,
         decoration: BoxDecoration(shape: BoxShape.circle,
           gradient: const LinearGradient(colors: [_kP, _kP2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 36, offset: const Offset(0, 10))]),
+          boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 36, offset: const Offset(0, 10))]),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('$_score', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 36, height: 1)),
           const Text('pts', style: TextStyle(color: Colors.white60, fontSize: 11)),
@@ -245,7 +245,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
 
   Widget _infoCard(String v, String l, IconData ic) => Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)]),
     child: Column(children: [Icon(ic, color: _kP, size: 20), const SizedBox(height: 4),
       Text(v, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1a1a2e))),
       Text(l, style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -253,7 +253,7 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
 
   Widget _statCard(String e, String l, String v) => Container(padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)]),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       Text(e, style: const TextStyle(fontSize: 20)),
       Text(v, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFF1a1a2e))),
@@ -263,6 +263,6 @@ class _SpeedRushState extends State<SpeedRushScreen> with SingleTickerProviderSt
   Widget _btn(String t, VoidCallback fn) => GestureDetector(onTap: fn, child: Container(width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 16),
     decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kP, _kP2]), borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))]),
+      boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))]),
     child: Center(child: Text(t, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)))));
 }

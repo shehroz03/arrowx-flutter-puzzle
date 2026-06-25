@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print, unused_local_variable, curly_braces_in_flow_control_structures
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';

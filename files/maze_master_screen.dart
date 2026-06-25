@@ -21,8 +21,8 @@ class _MazeGen {
       visited[r][c] = true;
       final dirs = [0, 1, 2, 3]..shuffle(rng);
       for (final d in dirs) {
-        final nr = r + [−1, 1, 0, 0][d];
-        final nc = c + [0, 0, 1, −1][d];
+        final nr = r + [-1, 1, 0, 0][d];
+        final nc = c + [0, 0, 1, -1][d];
         if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc]) {
           // Remove wall between (r,c) and (nr,nc)
           // d=0:N, 1:S, 2:E, 3:W
@@ -45,7 +45,7 @@ class MazeMasterScreen extends StatefulWidget {
 class _MazeMasterState extends State<MazeMasterScreen> {
   int _currentLevel = 0;
   List<int> _unlockedLevels = [0];
-  Map<int, int> _levelStars = {};
+  final Map<int, int> _levelStars = {};
   String _screen = 'menu';
 
   late List<List<int>> _maze;
@@ -61,7 +61,7 @@ class _MazeMasterState extends State<MazeMasterScreen> {
     final p = await SharedPreferences.getInstance();
     final unlocked = p.getInt('mm_unlocked') ?? 0;
     final starsStr = p.getString('mm_stars') ?? '{}';
-    final Map<String, dynamic> starsMap = Map.from({}..addAll({}));
+    // unused starsMap removed
     try {
       final decoded = starsStr.split(',').where((s) => s.contains(':'));
       for (final kv in decoded) {
@@ -148,7 +148,7 @@ class _MazeMasterState extends State<MazeMasterScreen> {
                 gradient: unlocked ? const LinearGradient(colors: [_kP, _kP2], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
                 color: unlocked ? null : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: unlocked ? [BoxShadow(color: _kP.withOpacity(.3), blurRadius: 8, offset: const Offset(0, 4))] : null,
+                boxShadow: unlocked ? [BoxShadow(color: _kP.withValues(alpha: .3), blurRadius: 8, offset: const Offset(0, 4))] : null,
               ),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(unlocked ? '${i + 1}' : '🔒', style: TextStyle(fontWeight: FontWeight.w800, fontSize: unlocked ? 16 : 14,
@@ -186,7 +186,7 @@ class _MazeMasterState extends State<MazeMasterScreen> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 20)]),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .08), blurRadius: 20)]),
         child: Column(mainAxisSize: MainAxisSize.min, children: List.generate(_rows, (r) => Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(_cols, (c) {
@@ -196,17 +196,17 @@ class _MazeMasterState extends State<MazeMasterScreen> {
             return Container(
               width: cellSize, height: cellSize,
               decoration: BoxDecoration(
-                color: isPlayer ? _kP.withOpacity(.15) : isExit ? Colors.green.withOpacity(.15) : Colors.white,
+                color: isPlayer ? _kP.withValues(alpha: .15) : isExit ? Colors.green.withValues(alpha: .15) : Colors.white,
                 border: Border(
-                  top:    walls & 1 != 0 ? BorderSide(color: _kP.withOpacity(.6), width: 1.5) : BorderSide.none,
-                  bottom: walls & 2 != 0 ? BorderSide(color: _kP.withOpacity(.6), width: 1.5) : BorderSide.none,
-                  right:  walls & 4 != 0 ? BorderSide(color: _kP.withOpacity(.6), width: 1.5) : BorderSide.none,
-                  left:   walls & 8 != 0 ? BorderSide(color: _kP.withOpacity(.6), width: 1.5) : BorderSide.none,
+                  top:    walls & 1 != 0 ? BorderSide(color: _kP.withValues(alpha: .6), width: 1.5) : BorderSide.none,
+                  bottom: walls & 2 != 0 ? BorderSide(color: _kP.withValues(alpha: .6), width: 1.5) : BorderSide.none,
+                  right:  walls & 4 != 0 ? BorderSide(color: _kP.withValues(alpha: .6), width: 1.5) : BorderSide.none,
+                  left:   walls & 8 != 0 ? BorderSide(color: _kP.withValues(alpha: .6), width: 1.5) : BorderSide.none,
                 ),
               ),
               child: Center(child: isPlayer ? Container(width: cellSize * .55, height: cellSize * .55,
                 decoration: BoxDecoration(color: _kP, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: _kP.withOpacity(.4), blurRadius: 6)]))
+                  boxShadow: [BoxShadow(color: _kP.withValues(alpha: .4), blurRadius: 6)]))
                 : isExit ? const Text('🏁', style: TextStyle(fontSize: 12)) : null),
             );
           }),
@@ -229,14 +229,14 @@ class _MazeMasterState extends State<MazeMasterScreen> {
   Widget _ctrlBtn(IconData ic, VoidCallback fn) => GestureDetector(onTap: fn, child: Container(
     margin: const EdgeInsets.all(4), width: 56, height: 56,
     decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kP, _kP2]), shape: BoxShape.circle,
-      boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 12, offset: const Offset(0, 4))]),
+      boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 12, offset: const Offset(0, 4))]),
     child: Icon(ic, color: Colors.white, size: 28)));
 
   Widget _wonCard() {
     final stars = _starsForMoves();
     return Container(margin: const EdgeInsets.all(20), padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 20)]),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .08), blurRadius: 20)]),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('🎉', style: TextStyle(fontSize: 60)),
         const SizedBox(height: 8),
@@ -249,7 +249,7 @@ class _MazeMasterState extends State<MazeMasterScreen> {
         const SizedBox(height: 20),
         Row(children: [
           Expanded(child: GestureDetector(onTap: () => _startLevel(_currentLevel), child: Container(padding: const EdgeInsets.symmetric(vertical: 13),
-            decoration: BoxDecoration(color: _kP.withOpacity(.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: _kP.withValues(alpha: .1), borderRadius: BorderRadius.circular(12)),
             child: const Center(child: Text('Retry', style: TextStyle(color: _kP, fontWeight: FontWeight.w700)))))),
           const SizedBox(width: 10),
           if (_currentLevel < 29) Expanded(child: GestureDetector(

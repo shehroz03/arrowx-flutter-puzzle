@@ -42,17 +42,11 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
   late List<_ColorDef> _opts;   // 4 answer options
   int? _sel;
   bool? _selOk;
-  bool _roundFlash = false;
-
-  late AnimationController _flashCtrl;
-  late Animation<Color?> _flashAnim;
   final _rng = Random();
 
   @override
   void initState() {
     super.initState();
-    _flashCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _flashAnim = ColorTween(begin: Colors.transparent, end: Colors.transparent).animate(_flashCtrl);
     _loadBest();
     _nextRound();
   }
@@ -72,9 +66,13 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
     final shuffled = List.of(_colors)..shuffle(_rng);
     _wordText  = shuffled[0];
     _wordColor = shuffled[1 % shuffled.length]; // different from text
-    while (_wordColor == _wordText) _wordColor = shuffled[_rng.nextInt(shuffled.length)];
+    while (_wordColor == _wordText) {
+      _wordColor = shuffled[_rng.nextInt(shuffled.length)];
+    }
     final opts = <_ColorDef>{_wordColor};
-    while (opts.length < 4) opts.add(_colors[_rng.nextInt(_colors.length)]);
+    while (opts.length < 4) {
+      opts.add(_colors[_rng.nextInt(_colors.length)]);
+    }
     _opts = opts.toList()..shuffle(_rng);
     setState(() { _sel = null; _selOk = null; });
   }
@@ -102,7 +100,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
   }
 
   @override
-  void dispose() { _timer?.cancel(); _flashCtrl.dispose(); super.dispose(); }
+  void dispose() { _timer?.cancel(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +115,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
     const SizedBox(height: 10),
     Container(width: 56, height: 56,
       decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kP, _kP2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))]),
+        borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))]),
       child: const Center(child: Text('🎨', style: TextStyle(fontSize: 28)))),
     const SizedBox(height: 14),
     const Text('Color Match', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF1a1a2e))),
@@ -127,7 +125,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
     // Demo card
     Container(padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12)]),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 12)]),
       child: Column(children: [
         const Text('Example:', style: TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 8),
@@ -165,7 +163,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
       // Header
       Container(margin: const EdgeInsets.all(12), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12)]),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 12)]),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Row(children: List.generate(3, (i) => Icon(i < _lives ? Icons.favorite : Icons.favorite_border,
               color: i < _lives ? Colors.red : Colors.grey, size: 22))),
@@ -189,16 +187,16 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
       Container(margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 20)]),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 20)]),
         child: Column(children: [
           const Text('What color is this text?', style: TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 16),
           Text(_wordText.name, style: TextStyle(fontSize: 46, fontWeight: FontWeight.w900,
               color: _wordColor.color, letterSpacing: 3,
-              shadows: [Shadow(color: _wordColor.color.withOpacity(.3), blurRadius: 12)])),
+              shadows: [Shadow(color: _wordColor.color.withValues(alpha: .3), blurRadius: 12)])),
           const SizedBox(height: 8),
           if (_combo >= 3) Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: BoxDecoration(color: _kP.withOpacity(.1), borderRadius: BorderRadius.circular(99)),
+            decoration: BoxDecoration(color: _kP.withValues(alpha: .1), borderRadius: BorderRadius.circular(99)),
             child: Text('🔥 Combo ×${1 + _combo ~/ 3}', style: const TextStyle(color: _kP, fontWeight: FontWeight.w700, fontSize: 12))),
         ])),
 
@@ -215,7 +213,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
             onTap: () => _pick(i),
             child: AnimatedContainer(duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: bg.withOpacity(.4), blurRadius: 12, offset: const Offset(0, 4))]),
+                boxShadow: [BoxShadow(color: bg.withValues(alpha: .4), blurRadius: 12, offset: const Offset(0, 4))]),
               child: Center(child: Text(c.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: fg, letterSpacing: 1)))),
           );
         }))),
@@ -233,7 +231,7 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
       Container(width: 110, height: 110,
         decoration: BoxDecoration(shape: BoxShape.circle,
           gradient: const LinearGradient(colors: [_kP, _kP2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 36, offset: const Offset(0, 10))]),
+          boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 36, offset: const Offset(0, 10))]),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('$_score', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 36, height: 1)),
           const Text('pts', style: TextStyle(color: Colors.white60, fontSize: 11)),
@@ -257,14 +255,14 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
 
   Widget _infoCard(String v, String l, IconData ic) => Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)]),
     child: Column(children: [Icon(ic, color: _kP, size: 20), const SizedBox(height: 4),
       Text(v, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF1a1a2e))),
       Text(l, style: const TextStyle(fontSize: 10, color: Colors.grey))])));
 
   Widget _statCard(String e, String l, String v) => Container(padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)]),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)]),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       Text(e, style: const TextStyle(fontSize: 20)),
       Text(v, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFF1a1a2e))),
@@ -274,6 +272,6 @@ class _ColorMatchState extends State<ColorMatchScreen> with SingleTickerProvider
   Widget _btn(String t, VoidCallback fn) => GestureDetector(onTap: fn, child: Container(width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 16),
     decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kP, _kP2]), borderRadius: BorderRadius.circular(14),
-      boxShadow: [BoxShadow(color: _kP.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))]),
+      boxShadow: [BoxShadow(color: _kP.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))]),
     child: Center(child: Text(t, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)))));
 }

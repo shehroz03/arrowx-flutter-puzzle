@@ -316,8 +316,8 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                           final double offsetY = (constraints.maxHeight - (gridH * initialScale)) / 2;
                           
                           final initialMatrix = Matrix4.identity()
-                            ..translate(offsetX, offsetY)
-                            ..scale(initialScale);
+                            ..translateByDouble(offsetX, offsetY, 0.0, 1.0)
+                            ..scaleByDouble(initialScale, initialScale, initialScale, 1.0);
                             
                           _transformationController = TransformationController(initialMatrix);
                         }
@@ -390,10 +390,6 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                               double width = (maxX - minX) * cs + (pad * 2);
                               double height = (maxY - minY) * cs + (pad * 2);
 
-                              // Center coordinates of the grid
-                              double centerLeft = (gs * cs / 2) - (width / 2);
-                              double centerTop = (gs * cs / 2) - (height / 2);
-
                               return AnimatedPositioned(
                                 key: ValueKey(arrow.id),
                                 duration: const Duration(milliseconds: 250),
@@ -453,7 +449,7 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen> {
                                   ),
                                 ),
                               );
-                            }).toList(),
+                            }),
                           ],
                         ),
                       ),

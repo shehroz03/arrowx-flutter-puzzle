@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print, unused_local_variable, curly_braces_in_flow_control_structures
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -87,8 +88,9 @@ void main() {
           double mouth = sqrt(pow(dx, 2) + pow(dy - gs/4, 2));
           double jaw = (sqrt(dx*dx + dy*dy) - (gs/2.2)).abs();
           
-          if (dy > 0 && mouth < gs/5 && dx.abs() < gs/4) score = mouth; // Mouth area
-          else if (dy < 0 && eyeL < gs/8) score = eyeL;
+          if (dy > 0 && mouth < gs/5 && dx.abs() < gs/4) {
+            score = mouth; // Mouth area
+          } else if (dy < 0 && eyeL < gs/8) score = eyeL;
           else if (dy < 0 && eyeR < gs/8) score = eyeR;
           else score = jaw; // Outline
         }

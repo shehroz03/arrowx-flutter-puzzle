@@ -198,8 +198,11 @@ class GameNotifier extends StateNotifier<GameState> {
 
       if (levelData == null) {
         String assetPath = 'assets/levels.json';
-        if (mode == GameMode.mazeMaster) assetPath = 'assets/mazes.json';
-        else if (mode == GameMode.colorMatch) assetPath = 'assets/color_match.json';
+        if (mode == GameMode.mazeMaster) {
+          assetPath = 'assets/mazes.json';
+        } else if (mode == GameMode.colorMatch) {
+          assetPath = 'assets/color_match.json';
+        }
 
         final String response = await rootBundle.loadString(assetPath);
         final List<dynamic> data = json.decode(response);
@@ -313,7 +316,6 @@ class GameNotifier extends StateNotifier<GameState> {
     int x = head[0] + dir[0];
     int y = head[1] + dir[1];
     int gs = state.gridSize;
-    int steps = 0;
 
     Set<String> blocked = {};
     for (var other in state.arrows) {
@@ -327,7 +329,6 @@ class GameNotifier extends StateNotifier<GameState> {
         clearToExit = false;
         break;
       }
-      steps++;
       x += dir[0];
       y += dir[1];
     }

@@ -273,7 +273,7 @@ class ArrowPathPainter extends CustomPainter {
     } else {
       // SLITHER ANIMATION
       // Extend the path in fly direction
-      String cacheKey = '${arrow.id}_${arrow.path.last}_${cellSize}';
+      String cacheKey = '${arrow.id}_${arrow.path.last}_$cellSize';
       _PathCache? cache = _slitherCache[cacheKey];
 
       if (cache == null) {

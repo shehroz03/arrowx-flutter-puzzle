@@ -44,18 +44,23 @@ class LeaderboardScreen extends ConsumerWidget {
 
   Widget _buildPlayerRow({required int rank, required String name, required int score, required bool isMe}) {
     Color medalColor;
-    if (rank == 1) medalColor = Colors.amber;
-    else if (rank == 2) medalColor = Colors.grey.shade400;
-    else if (rank == 3) medalColor = Colors.brown.shade400;
-    else medalColor = Colors.transparent;
+    if (rank == 1) {
+      medalColor = Colors.amber;
+    } else if (rank == 2) {
+      medalColor = Colors.grey.shade400;
+    } else if (rank == 3) {
+      medalColor = Colors.brown.shade400;
+    } else {
+      medalColor = Colors.transparent;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: isMe ? const Color(0xFF1E56D0).withOpacity(0.1) : Colors.white,
+        color: isMe ? const Color(0xFF1E56D0).withValues(alpha: 0.1) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: isMe ? Border.all(color: const Color(0xFF1E56D0).withOpacity(0.3), width: 1.5) : null,
-        boxShadow: isMe ? [] : [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5))],
+        border: isMe ? Border.all(color: const Color(0xFF1E56D0).withValues(alpha: 0.3), width: 1.5) : null,
+        boxShadow: isMe ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: Row(
         children: [

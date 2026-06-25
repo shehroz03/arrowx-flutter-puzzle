@@ -6,8 +6,6 @@ import 'game_data.dart';
 import 'sound_manager.dart';
 import 'puzzles_screen.dart';
 import 'events_screen.dart';
-import 'shop_screen.dart';
-import 'leaderboard_screen.dart';
 import 'level_selection_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -181,35 +179,7 @@ class _BackgroundBlob extends StatelessWidget {
   }
 }
 
-class _CoinCounter extends StatelessWidget {
-  final int coins;
-  const _CoinCounter({required this.coins});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.monetization_on, color: Colors.amber, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            "$coins",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E1E2C)),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// _CoinCounter removed
 
 class _StageProgression extends StatelessWidget {
   final int current;
@@ -260,37 +230,6 @@ class _StageProgression extends StatelessWidget {
   }
 }
 
-class _CircularIconButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _CircularIconButton({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 65,
-            height: 65,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [Color(0xFF1E56D0), Color(0xFF4A90D9)]),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF1E56D0).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8)),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 30),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E1E2C), fontSize: 14)),
-      ],
-    );
-  }
-}
 
 class _DailyChallengeCard extends StatelessWidget {
   final VoidCallback onTap;

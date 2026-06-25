@@ -115,7 +115,7 @@ Widget _qBox({double w = 88, double h = 72}) {
   return Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: _kPrimary.withOpacity(0.07),
+      color: _kPrimary.withValues(alpha: 0.07),
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: _kPrimary, width: 2.5,
           style: BorderStyle.solid),
@@ -208,32 +208,6 @@ Widget _rain(int rows, int cols, double ang, {double w = 88, double h = 72}) {
   );
 }
 
-// Dot grid
-Widget _dots(int cols, int rows, {double w = 88, double h = 72}) {
-  final sp = w / (cols + 1);
-  return Container(
-    width: w, height: h,
-    decoration: BoxDecoration(color: _kCellBg, borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _kCellBd, width: 1)),
-    child: CustomPaint(
-      painter: _DotPainter(cols, rows, sp),
-    ),
-  );
-}
-
-class _DotPainter extends CustomPainter {
-  final int c, r;
-  final double sp;
-  _DotPainter(this.c, this.r, this.sp);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = _kDark;
-    final hsp = size.height / (r + 1);
-    for (int rr = 0; rr < r; rr++) for (int cc = 0; cc < c; cc++)
-      canvas.drawCircle(Offset(sp * (cc + 1), hsp * (rr + 1)), 2, p);
-  }
-  @override bool shouldRepaint(_DotPainter o) => false;
-}
 
 // Custom dot positions
 class _CustomDotPainter extends CustomPainter {
@@ -242,8 +216,9 @@ class _CustomDotPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..color = _kDark;
-    for (final pos in positions)
+    for (final pos in positions) {
       canvas.drawCircle(Offset(pos.dx * size.width, pos.dy * size.height), 3.5, p);
+    }
   }
   @override bool shouldRepaint(_CustomDotPainter o) => false;
 }
@@ -766,7 +741,7 @@ class _StartScreenState extends State<_StartScreen> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [_kPrimary, _kPrimary2], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: _kPrimary.withOpacity(.3), blurRadius: 24, offset: const Offset(0, 8))],
+              boxShadow: [BoxShadow(color: _kPrimary.withValues(alpha: .3), blurRadius: 24, offset: const Offset(0, 8))],
             ),
             child: const Center(child: Text('🧠', style: TextStyle(fontSize: 26)))),
           const SizedBox(height: 12),
@@ -794,7 +769,7 @@ class _StartScreenState extends State<_StartScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
                       gradient: _gender == g ? const LinearGradient(colors: [_kPrimary, _kPrimary2], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                      color: _gender == g ? null : _kPrimary.withOpacity(.08),
+                      color: _gender == g ? null : _kPrimary.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(child: Text(g, style: TextStyle(fontWeight: FontWeight.w700, color: _gender == g ? Colors.white : _kPrimary, fontSize: 14))),
@@ -813,7 +788,7 @@ class _StartScreenState extends State<_StartScreen> {
                 gradient: _gender != null ? const LinearGradient(colors: [_kPrimary, _kPrimary2], begin: Alignment.centerLeft, end: Alignment.centerRight) : null,
                 color: _gender == null ? Colors.grey.shade300 : null,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: _gender != null ? [BoxShadow(color: _kPrimary.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))] : null,
+                boxShadow: _gender != null ? [BoxShadow(color: _kPrimary.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))] : null,
               ),
               child: Center(child: Text(_record != null ? 'Beat Record 🔥' : 'Start Test', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15))),
             ),
@@ -987,7 +962,7 @@ class _QuestionScreenState extends State<_QuestionScreen> {
         // Header
         Container(margin: const EdgeInsets.all(12), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 14)]),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .05), blurRadius: 14)]),
           child: Row(children: [
             GestureDetector(onTap: widget.onBack,
               child: Container(width: 36, height: 36,
@@ -1036,7 +1011,7 @@ class _QuestionScreenState extends State<_QuestionScreen> {
           if (widget.q.type == QType.agree) ...[
             Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 12)]),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 12)]),
               child: Column(children: [
                 Container(width: 40, height: 40,
                   decoration: BoxDecoration(color: _kCellBg, borderRadius: BorderRadius.circular(12)),
@@ -1067,7 +1042,7 @@ class _QuestionScreenState extends State<_QuestionScreen> {
                   child: Center(child: Text(n, style: TextStyle(fontWeight: FontWeight.w800, fontSize: n == '?' ? 20 : 17, color: n == '?' ? Colors.white : const Color(0xFF1a1a2e)))),
                 )).toList()),
               ])),
-            Text('Select answer:', style: TextStyle(fontWeight: FontWeight.w700, color: const Color(0xFF1a1a2e).withOpacity(.8), fontSize: 13)),
+            Text('Select answer:', style: TextStyle(fontWeight: FontWeight.w700, color: const Color(0xFF1a1a2e).withValues(alpha: .8), fontSize: 13)),
             const SizedBox(height: 8),
             GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4,
@@ -1078,7 +1053,7 @@ class _QuestionScreenState extends State<_QuestionScreen> {
                     gradient: _sel == i ? const LinearGradient(colors: [_kPrimary, _kPrimary2]) : null,
                     color: _sel == i ? null : Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)],
                   ),
                   child: Center(child: Text(widget.q.numOpts![i], style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _sel == i ? Colors.white : const Color(0xFF1a1a2e)))),
                 ),
@@ -1088,7 +1063,7 @@ class _QuestionScreenState extends State<_QuestionScreen> {
           if (widget.q.type == QType.visual) ...[
             Container(margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 12)]),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 12)]),
               child: widget.q.qWidget!()),
             Text(widget.q.label!, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1a1a2e), fontSize: 13)),
             const SizedBox(height: 10),
@@ -1098,10 +1073,10 @@ class _QuestionScreenState extends State<_QuestionScreen> {
                 onTap: () => _pick(i),
                 child: AnimatedContainer(duration: const Duration(milliseconds: 180),
                   decoration: BoxDecoration(
-                    color: _sel == i ? _kPrimary.withOpacity(.08) : Colors.white,
+                    color: _sel == i ? _kPrimary.withValues(alpha: .08) : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: _sel == i ? _kPrimary : Colors.transparent, width: 2.5),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 8)],
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)],
                   ),
                   child: Center(child: widget.q.opts![i]()),
                 ),
@@ -1132,7 +1107,7 @@ class _AgreeOpt extends StatelessWidget {
           gradient: active ? const LinearGradient(colors: [_kPrimary, _kPrimary2]) : null,
           color: active ? null : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: active ? _kPrimary.withOpacity(.25) : Colors.black.withOpacity(.04), blurRadius: active ? 16 : 8)],
+          boxShadow: [BoxShadow(color: active ? _kPrimary.withValues(alpha: .25) : Colors.black.withValues(alpha: .04), blurRadius: active ? 16 : 8)],
         ),
         child: Row(children: [
           Text(_emojis[idx], style: const TextStyle(fontSize: 20)),
@@ -1212,7 +1187,7 @@ class _ResultScreenState extends State<_ResultScreen> with SingleTickerProviderS
             width: 110, height: 110,
             decoration: BoxDecoration(shape: BoxShape.circle,
               gradient: const LinearGradient(colors: [_kPrimary, _kPrimary2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              boxShadow: [BoxShadow(color: _kPrimary.withOpacity(.35), blurRadius: 36, offset: const Offset(0, 10))]),
+              boxShadow: [BoxShadow(color: _kPrimary.withValues(alpha: .35), blurRadius: 36, offset: const Offset(0, 10))]),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Text('${_iqAnim.value}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 36, height: 1)),
               const Text('IQ', style: TextStyle(color: Colors.white60, fontSize: 11)),
@@ -1235,7 +1210,7 @@ class _ResultScreenState extends State<_ResultScreen> with SingleTickerProviderS
           // Quick overview grid
           Container(padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(.04), blurRadius: 12)]),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 12)]),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Quick Overview', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: Colors.grey)),
               const SizedBox(height: 8),
@@ -1259,7 +1234,7 @@ class _ResultScreenState extends State<_ResultScreen> with SingleTickerProviderS
             onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const IQTestScreen())),
             child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 13),
               decoration: BoxDecoration(gradient: const LinearGradient(colors: [_kPrimary, _kPrimary2]), borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: _kPrimary.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))]),
+                boxShadow: [BoxShadow(color: _kPrimary.withValues(alpha: .35), blurRadius: 20, offset: const Offset(0, 8))]),
               child: const Center(child: Text('Try Again 🔄', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)))),
           ),
           const SizedBox(height: 20),
@@ -1353,7 +1328,7 @@ class _ReviewTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.03), blurRadius: 8)]),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .03), blurRadius: 8)]),
       child: Row(children: [
         Container(width: 28, height: 28,
           decoration: BoxDecoration(color: const Color(0xFFf8f9fa), borderRadius: BorderRadius.circular(8)),
