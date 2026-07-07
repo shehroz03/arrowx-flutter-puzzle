@@ -3,10 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'game_board.dart';
 import 'game_state.dart';
 import 'game_data.dart';
+import 'apna_maze_screen.dart';
+import 'shop_provider.dart';
+import 'shop_screen.dart';
 import 'sound_manager.dart';
 import 'puzzles_screen.dart';
-import 'events_screen.dart';
+import 'package:app_links/app_links.dart';
+import 'dart:async';
 import 'level_selection_screen.dart';
+import 'maze_builder.dart';
+import 'fun_maze_manager.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +23,69 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+  late AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    _appLinks = AppLinks();
+    
+    // Handle link when app is in cold state (terminated)
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('Failed to get initial link: $e');
+    }
+
+    // Handle link when app is in warm state (foreground or background)
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    }, onError: (err) {
+      debugPrint('Deep link stream error: $err');
+    });
+  }
+
+  void _handleDeepLink(Uri uri) async {
+    if (uri.scheme == 'arrowx' && uri.host == 'maze') {
+      final name = uri.queryParameters['name'];
+      if (name != null && name.isNotEmpty) {
+        final result = await buildNameMaze(name);
+        if (result != null && mounted) {
+          await FunMazeManager.add(name);
+          if (!mounted) return;
+          ref.read(gameStateProvider.notifier).loadCustomLevel(
+                result.arrows,
+                result.gridSize,
+                mask: result.mask,
+                title: name.trim().toUpperCase(),
+              );
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const GameBoardScreen()),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Could not load this custom maze.'),
+          ));
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
 
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -39,7 +108,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           _HomeContent(showComingSoon: _showComingSoon),
           const PuzzlesScreen(),
-          const EventsScreen(),
         ],
       ),
       bottomNavigationBar: _CustomBottomNavBar(
@@ -62,91 +130,99 @@ class _HomeContent extends ConsumerWidget {
     
     return Stack(
       children: [
+        // Geometric Background Grid
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _GeometricBackgroundPainter(),
+          ),
+        ),
         // Background Blobs/Gradients
         Positioned(
           top: -100,
           left: -50,
-          child: _BackgroundBlob(color: const Color(0xFF1E56D0).withValues(alpha: 0.1), size: 300),
+          child: _BackgroundBlob(color: const Color(0xFF1E56D0).withValues(alpha: 0.12), size: 350),
         ),
         Positioned(
           bottom: -100,
           right: -100,
-          child: _BackgroundBlob(color: const Color(0xFF4A90D9).withValues(alpha: 0.05), size: 400),
+          child: _BackgroundBlob(color: const Color(0xFF00AAFF).withValues(alpha: 0.08), size: 450),
         ),
         
         SafeArea(
           child: Column(
             children: [
-              // Top Bar
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: SizedBox(height: 36), // Preserve some spacing where coin counter was
-              ),
-              
+              const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: Column(
                     children: [
                       const SizedBox(height: 10),
                       
-                      // Stage Progression
+                      // Stage Progression (Circular Indicator matching Image 1)
                       GestureDetector(
                         onTap: () {
                           SoundManager().playTap();
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const LevelSelectionScreen()));
                         },
-                        child: _StageProgression(current: gameState.level, total: 70),
+                        child: _CircularStageProgression(current: gameState.level, total: 200),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 45),
                       
                       // Central Logo & Tagline
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const _FloatingIcon(),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           const Text(
-                            "MASTER THE MAZE",
+                            "MASTER THE GRID",
                             style: TextStyle(
-                              fontSize: 12,
-                              letterSpacing: 4,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              letterSpacing: 6,
+                              fontWeight: FontWeight.w900,
                               color: Color(0xFF1E56D0),
                             ),
                           ),
                         ],
                       ),
                       
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 55),
                       
-                      // Main Action Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _PulsingPlayButton(
-                            level: gameState.level,
-                            onPressed: () {
-                              SoundManager().playTap();
-                              GameDataManager.saveLastScreen('game');
-                              GameDataManager.savePlayingLevel(gameState.level);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const GameBoardScreen()),
-                              ).then((_) => GameDataManager.saveLastScreen('home'));
-                            },
-                          ),
-                        ],
+                      // Main Action Button (Wide Gradient Pill Button)
+                      _PulsingPlayButton(
+                        level: gameState.level,
+                        onPressed: () {
+                          SoundManager().playTap();
+                          GameDataManager.saveLastScreen('game');
+                          GameDataManager.savePlayingLevel(gameState.level);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const GameBoardScreen()),
+                          ).then((_) {
+                            GameDataManager.saveLastScreen('home');
+                            ref.read(shopProvider.notifier).refresh();
+                          });
+                        },
                       ),
                       
-                      const SizedBox(height: 50),
+                      const SizedBox(height: 35),
                       
-                      // Daily Challenges Card
-                      _DailyChallengeCard(onTap: () {
+
+                      // Theme Shop Card (spend collected stars)
+                      _ShopCard(onTap: () {
                         SoundManager().playTap();
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const EventsScreen()));
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen()))
+                            .then((_) => ref.read(shopProvider.notifier).refresh());
                       }),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 18),
+
+                      // Apna Maze Card (name -> playable maze)
+                      _ApnaMazeCard(onTap: () {
+                        SoundManager().playTap();
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ApnaMazeScreen()));
+                      }),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -157,6 +233,29 @@ class _HomeContent extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _GeometricBackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1E56D0).withValues(alpha: 0.04)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final double spacing = 40.0;
+    for (double i = -size.height; i < size.width + size.height; i += spacing) {
+      canvas.drawLine(Offset(i, 0), Offset(i + size.height, size.height), paint);
+      canvas.drawLine(Offset(i, size.height), Offset(i + size.height, 0), paint);
+    }
+    
+    for (double x = 0; x < size.width; x += spacing * 2) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _BackgroundBlob extends StatelessWidget {
@@ -179,61 +278,195 @@ class _BackgroundBlob extends StatelessWidget {
   }
 }
 
-// _CoinCounter removed
+class _CircularProgressPainter extends CustomPainter {
+  final double progress;
+  _CircularProgressPainter({required this.progress});
 
-class _StageProgression extends StatelessWidget {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 16) / 2;
+
+    // Background track
+    final bgPaint = Paint()
+      ..color = const Color(0xFF1E56D0).withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Active progress arc with sweep gradient
+    final gradient = const SweepGradient(
+      startAngle: -3.14159 / 2,
+      endAngle: 3.14159 * 1.5,
+      colors: [Color(0xFF1E56D0), Color(0xFF00AAFF), Color(0xFF1E56D0)],
+    );
+
+    final activePaint = Paint()
+      ..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 16;
+
+    final sweepAngle = 2 * 3.14159 * progress.clamp(0.01, 1.0);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -3.14159 / 2,
+      sweepAngle,
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircularProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+class _CircularStageProgression extends StatelessWidget {
   final int current;
   final int total;
-  const _StageProgression({required this.current, required this.total});
+  const _CircularStageProgression({required this.current, required this.total});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20),
-            ],
-          ),
-          child: Row(
-            children: List.generate(6, (i) {
-              final isActive = i < (current / total * 6).ceil().clamp(1, 6);
-              return Expanded(
-                child: Container(
-                  height: 30,
-                  margin: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: isActive 
-                      ? const LinearGradient(colors: [Color(0xFF1E56D0), Color(0xFF4A90D9)])
-                      : null,
-                    color: isActive ? null : Colors.grey.shade100,
-                  ),
-                ),
-              );
-            })..add(
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text("$current/$total", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 12)),
-              )
+    return SizedBox(
+      width: 230,
+      height: 230,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer Circular Progress
+          SizedBox(
+            width: 230,
+            height: 230,
+            child: CustomPaint(
+              painter: _CircularProgressPainter(progress: current / total),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text("Stage Progression", style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600)),
-      ],
+          // Inner Raised Disc
+          Container(
+            width: 178,
+            height: 178,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFF0F4FA),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Stage $current",
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E1E2C),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$current/$total",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 
-class _DailyChallengeCard extends StatelessWidget {
+class _ShopCard extends ConsumerWidget {
   final VoidCallback onTap;
-  const _DailyChallengeCard({required this.onTap});
+  const _ShopCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shop = ref.watch(shopProvider);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFDF2F8), Color(0xFFF3E8FF)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFB76E79).withValues(alpha: 0.25)),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF9B59B6).withValues(alpha: 0.10),
+                blurRadius: 30,
+                offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [Color(0xFFB76E79), Color(0xFF9B59B6)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.palette_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 20),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Theme Shop",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Color(0xFF1E1E2C))),
+                  SizedBox(height: 4),
+                  Text("Unlock premium animated themes",
+                      style: TextStyle(color: Colors.grey, fontSize: 14)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(children: [
+                const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                const SizedBox(width: 4),
+                Text('${shop.stars}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, color: Color(0xFF7A5200))),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApnaMazeCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ApnaMazeCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -242,10 +475,18 @@ class _DailyChallengeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFEAF2FF), Color(0xFFDCE9FF)],
+          ),
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFF1E56D0).withValues(alpha: 0.2)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 30, offset: const Offset(0, 10)),
+            BoxShadow(
+                color: const Color(0xFF1E56D0).withValues(alpha: 0.08),
+                blurRadius: 30,
+                offset: const Offset(0, 10)),
           ],
         ),
         child: Row(
@@ -253,19 +494,25 @@ class _DailyChallengeCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E56D0).withValues(alpha: 0.1),
+                gradient: const LinearGradient(
+                    colors: [Color(0xFF1E56D0), Color(0xFF00AAFF)]),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.calendar_today_rounded, color: Color(0xFF1E56D0)),
+              child: const Icon(Icons.abc_rounded, color: Colors.white),
             ),
             const SizedBox(width: 20),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Daily Challenges", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1E1E2C))),
+                  Text("My Fun",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Color(0xFF1E1E2C))),
                   SizedBox(height: 4),
-                  Text("Progress 10 / 50 minutes", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  Text("Turn your name into a playable maze",
+                      style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
@@ -297,7 +544,6 @@ class _CustomBottomNavBar extends StatelessWidget {
         children: [
           _NavBarItem(icon: Icons.home_rounded, label: "Home", isActive: currentIndex == 0, onTap: () => onItemTap(0)),
           _NavBarItem(icon: Icons.extension_rounded, label: "Puzzles", isActive: currentIndex == 1, onTap: () => onItemTap(1)),
-          _NavBarItem(icon: Icons.emoji_events_outlined, label: "Events", isActive: currentIndex == 2, onTap: () => onItemTap(2)),
         ],
       ),
     );
@@ -353,10 +599,8 @@ class _FloatingIconState extends State<_FloatingIcon> with SingleTickerProviderS
         width: 280,
         height: 180,
         child: Image.asset(
-          'assets/icon.png',
+          'assets/icon_transparent.png',
           fit: BoxFit.contain,
-          color: const Color(0xFFF8FAFF),
-          colorBlendMode: BlendMode.multiply,
         ),
       ),
     );
@@ -374,7 +618,7 @@ class _PulsingPlayButton extends StatefulWidget {
 
 class _PulsingPlayButtonState extends State<_PulsingPlayButton> with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
-  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 1.05).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutQuad));
+  late final Animation<double> _scale = Tween<double>(begin: 1.0, end: 1.03).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutQuad));
 
   @override
   void dispose() {
@@ -388,32 +632,52 @@ class _PulsingPlayButtonState extends State<_PulsingPlayButton> with SingleTicke
       animation: _scale,
       builder: (ctx, child) => Transform.scale(scale: _scale.value, child: child),
       child: Container(
-        width: 180,
-        height: 85,
+        width: double.infinity,
+        height: 75,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(40),
+          borderRadius: BorderRadius.circular(38),
           gradient: const LinearGradient(
-            colors: [Color(0xFF1E56D0), Color(0xFF4A90D9)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            colors: [Color(0xFF1E56D0), Color(0xFF00AAFF)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
           ),
           boxShadow: [
-            BoxShadow(color: const Color(0xFF1E56D0).withValues(alpha: 0.3), blurRadius: 30, offset: const Offset(0, 15)),
+            BoxShadow(
+              color: const Color(0xFF1E56D0).withValues(alpha: 0.35),
+              blurRadius: 25,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(38)),
           ),
           onPressed: widget.onPressed,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("START GAME", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5)),
+              const Text(
+                "START GAME",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 1.0,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text("Stage ${widget.level}", style: const TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.bold)),
+              Text(
+                "Stage ${widget.level}",
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ],
           ),
         ),

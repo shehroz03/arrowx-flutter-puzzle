@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'game_state.dart';
-import 'game_board.dart';
-import 'game_data.dart';
+import 'shop_provider.dart';
 import 'level_selection_screen.dart';
 import 'sound_manager.dart';
 import 'iq_test_screen.dart';
@@ -64,10 +63,13 @@ class PuzzlesScreen extends ConsumerWidget {
                       children: [
                         const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
                         const SizedBox(width: 6),
-                        Text(
-                          "${gameState.points}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E1E2C)),
-                        ),
+                        Consumer(builder: (context, ref2, _) {
+                          final shop = ref2.watch(shopProvider);
+                          return Text(
+                            "${shop.stars}",
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E1E2C)),
+                          );
+                        }),
                       ],
                     ),
                   ),
@@ -100,14 +102,14 @@ class PuzzlesScreen extends ConsumerWidget {
                           const Text("Your Progress", style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 8),
                           Text(
-                            "Stage ${gameState.level} / 70",
+                            "Stage ${gameState.level} / 200",
                             style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
-                              value: gameState.level / 70,
+                              value: gameState.level / 200,
                               backgroundColor: Colors.white24,
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                               minHeight: 8,
@@ -126,7 +128,7 @@ class PuzzlesScreen extends ConsumerWidget {
                       ),
                       child: Center(
                         child: Text(
-                          "${(gameState.level / 70 * 100).toInt()}%",
+                          "${(gameState.level / 200 * 100).toInt()}%",
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                         ),
                       ),
@@ -154,9 +156,9 @@ class PuzzlesScreen extends ConsumerWidget {
                 icon: Icons.arrow_forward_rounded,
                 title: "Classic Arrow",
                 subtitle: "Tap arrows to clear the grid",
-                levels: "70 Levels",
+                levels: "200 Levels",
                 progress: gameState.level - 1,
-                totalLevels: 70,
+                totalLevels: 200,
                 gradient: const [Color(0xFF1E56D0), Color(0xFF4A90D9)],
                 onTap: () {
                   SoundManager().playTap();
@@ -230,69 +232,6 @@ class PuzzlesScreen extends ConsumerWidget {
                 },
               ),
 
-              const SizedBox(height: 28),
-
-              // Quick Play
-              const Text(
-                "QUICK PLAY",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Continue Current Level Card
-              GestureDetector(
-                onTap: () {
-                  SoundManager().playTap();
-                  GameDataManager.saveLastScreen('game');
-                  GameDataManager.savePlayingLevel(gameState.level);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GameBoardScreen()),
-                  ).then((_) => GameDataManager.saveLastScreen('home'));
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8)),
-                    ],
-                    border: Border.all(color: const Color(0xFF1E56D0).withValues(alpha: 0.15)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF1E56D0), Color(0xFF4A90D9)]),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("Continue Playing", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF1E1E2C))),
-                            const SizedBox(height: 4),
-                            Text("Stage ${gameState.level}", style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded, color: Color(0xFF1E56D0), size: 28),
-                    ],
-                  ),
-                ),
-              ),
 
               const SizedBox(height: 30),
             ],

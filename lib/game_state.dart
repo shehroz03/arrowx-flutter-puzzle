@@ -4,8 +4,11 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'game_data.dart';
+import 'settings_provider.dart';
 import 'sound_manager.dart';
 import 'editor_provider.dart';
+import 'review_manager.dart';
+import 'fun_maze_manager.dart';
 
 enum GameMode { normal, speedRush, mazeMaster, colorMatch }
 
@@ -15,6 +18,8 @@ class ArrowModel {
   final bool arrowAtEnd;      // true = arrowhead at path.last
   final bool isSolved;
   final bool hasError;
+  final bool isPermanentError;
+  final int errorCount;
   final Set<String> occupiedCells;
   final int colorIndex;
 
@@ -24,6 +29,8 @@ class ArrowModel {
     this.arrowAtEnd = true,
     this.isSolved = false,
     this.hasError = false,
+    this.isPermanentError = false,
+    this.errorCount = 0,
     this.colorIndex = 0,
   }) : occupiedCells = path.map((p) => '${p[0]},${p[1]}').toSet();
 
@@ -60,13 +67,22 @@ class ArrowModel {
     return [mnX, mnY, mxX, mxY];
   }
 
-  ArrowModel copyWith({List<List<int>>? path, bool? isSolved, bool? hasError, int? colorIndex}) {
+  ArrowModel copyWith({
+    List<List<int>>? path, 
+    bool? isSolved, 
+    bool? hasError, 
+    bool? isPermanentError,
+    int? errorCount,
+    int? colorIndex,
+  }) {
     return ArrowModel(
       id: id,
       path: path ?? this.path,
       arrowAtEnd: arrowAtEnd,
       isSolved: isSolved ?? this.isSolved,
       hasError: hasError ?? this.hasError,
+      isPermanentError: isPermanentError ?? this.isPermanentError,
+      errorCount: errorCount ?? this.errorCount,
       colorIndex: colorIndex ?? this.colorIndex,
     );
   }
@@ -88,6 +104,9 @@ class GameState {
   final Set<String> revealedCells;
   final GameMode gameMode;
   final int? targetColorIndex;
+  final String shapeName;        // '' when the level has no named shape
+  final bool isCustomLevel;      // Apna Maze / editor test play
+  final Set<String> customMask;  // silhouette for custom-level reveal
 
   GameState({
     this.level = 1,
@@ -105,6 +124,9 @@ class GameState {
     this.revealedCells = const {},
     this.gameMode = GameMode.normal,
     this.targetColorIndex,
+    this.shapeName = '',
+    this.isCustomLevel = false,
+    this.customMask = const {},
   });
 
   GameState copyWith({
@@ -119,6 +141,9 @@ class GameState {
     Set<String>? revealedCells,
     GameMode? gameMode,
     int? targetColorIndex,
+    String? shapeName,
+    bool? isCustomLevel,
+    Set<String>? customMask,
   }) {
     return GameState(
       level: level ?? this.level,
@@ -136,6 +161,9 @@ class GameState {
       revealedCells: revealedCells ?? this.revealedCells,
       gameMode: gameMode ?? this.gameMode,
       targetColorIndex: targetColorIndex ?? this.targetColorIndex,
+      shapeName: shapeName ?? this.shapeName,
+      isCustomLevel: isCustomLevel ?? this.isCustomLevel,
+      customMask: customMask ?? this.customMask,
     );
   }
 
@@ -182,6 +210,11 @@ class GameNotifier extends StateNotifier<GameState> {
     return List.generate(len, (i) => [sx + dx * i, sy + dy * i]);
   }
 
+  Map<String, dynamic> _injectBigShapeArrows(dynamic originalLevelData, int level, GameMode mode) {
+    // Levels are fully designed in assets/levels.json; runtime injection is disabled.
+    return originalLevelData as Map<String, dynamic>;
+  }
+
   Future<void> loadLevel(int targetLevel, {bool force = false, GameMode mode = GameMode.normal}) async {
     if (!force && state.level == targetLevel && state.arrows.isNotEmpty && !state.isLevelComplete && !state.gameOver && state.gameMode == mode) {
        // Level already loaded and active, skip redundant reload
@@ -189,7 +222,7 @@ class GameNotifier extends StateNotifier<GameState> {
     }
     try {
       dynamic levelData;
-      if (targetLevel >= 100) {
+      if (targetLevel >= 1000) {
         levelData = EditorNotifier.savedLevels.cast<dynamic>().firstWhere(
           (lvl) => lvl['level'] == targetLevel,
           orElse: () => EditorNotifier.savedLevels.isNotEmpty ? EditorNotifier.savedLevels.first : null,
@@ -211,6 +244,8 @@ class GameNotifier extends StateNotifier<GameState> {
           orElse: () => data.first,
         );
       }
+
+      levelData = _injectBigShapeArrows(levelData, targetLevel, mode);
 
       List<ArrowModel> parsed = (levelData['arrows'] as List).map((a) {
         List<List<int>> arrowPath;
@@ -272,6 +307,9 @@ class GameNotifier extends StateNotifier<GameState> {
         isHardStage: isHard,
         revealedCells: {},
         targetColorIndex: targetColor,
+        shapeName: (levelData['shapeName'] as String?) ?? '',
+        isCustomLevel: false,
+        customMask: const {},
       );
       _isProcessingTap = false;
       _startTimer(tLvl, savedTime);
@@ -334,8 +372,9 @@ class GameNotifier extends StateNotifier<GameState> {
     }
 
     if (clearToExit) {
-      // CLEAR — fly out
-      SoundManager().playClear();
+      // CLEAR — fly out with a sound that matches the theme (if it forces an
+      // effect) or the level's rotation otherwise.
+      SoundManager().playTrail(activeTrailOverride ?? (state.level - 1) % 6);
       state = state.copyWith(
         points: state.points + 10,
         arrows: state.arrows.map((a) =>
@@ -367,9 +406,24 @@ class GameNotifier extends StateNotifier<GameState> {
             }
           }
           state = state.copyWith(isLevelComplete: true, earnedStars: stars, revealedCells: newRevealed);
+          if (!state.isCustomLevel) {
+            _creditBestStars(state.gameMode, state.level, stars);
+            GameDataManager.markLevelCompleted(state.level);
+          }
           GameDataManager.clearRemainingArrows(state.level);
-          
-          if (state.gameMode == GameMode.speedRush) {
+
+          // Trigger in-app review at strategic levels for ASO
+          if (!state.isCustomLevel) {
+            ReviewManager().onLevelComplete(state.level);
+          }
+
+          if (state.isCustomLevel) {
+            // Mark Fun maze as completed locally
+            if (state.shapeName.isNotEmpty) {
+              FunMazeManager.markCompleted(state.shapeName, stars: stars);
+            }
+            // Custom (Apna Maze / editor): stay on the overlay, no auto-advance
+          } else if (state.gameMode == GameMode.speedRush) {
             // Speed rush: Add 10s to timer, don't load next level automatically, wait for UI to do it
             // Actually, we can load next random level automatically
             int next = Random().nextInt(50) + 1;
@@ -377,7 +431,11 @@ class GameNotifier extends StateNotifier<GameState> {
           } else {
             int next = state.level + 1;
             GameDataManager.saveProgress(next, state.points);
-            Future.delayed(const Duration(milliseconds: 2500), () => loadLevel(next, mode: state.gameMode));
+            // Leave room for the "Set It Free" shape reveal before advancing
+            final delayMs = state.shapeName.isNotEmpty ? 5200 : 2500;
+            Future.delayed(Duration(milliseconds: delayMs), () {
+              if (mounted) loadLevel(next, mode: state.gameMode);
+            });
           }
         } else {
           int? newTargetColor = state.targetColorIndex;
@@ -404,9 +462,16 @@ class GameNotifier extends StateNotifier<GameState> {
       SoundManager().playError();
       int newChances = state.chances - 1;
       final tid = tappedArrow.id;
+      final int newErrorCount = tappedArrow.errorCount + 1;
+      final bool permanent = newErrorCount >= 2;
+
       state = state.copyWith(
         chances: newChances, gameOver: newChances <= 0,
-        arrows: state.arrows.map((a) => a.id == tid ? a.copyWith(hasError: true) : a).toList(),
+        arrows: state.arrows.map((a) => a.id == tid ? a.copyWith(
+          hasError: true,
+          errorCount: newErrorCount,
+          isPermanentError: permanent,
+        ) : a).toList(),
       );
       Future.delayed(const Duration(milliseconds: 400), () {
         if (!mounted) return;
@@ -419,22 +484,42 @@ class GameNotifier extends StateNotifier<GameState> {
   }
 
 
-  /// Load a custom level from the editor (for Test Play)
-  void loadCustomLevel(List<ArrowModel> arrows, int gridSize) {
+  /// Load a custom level (editor Test Play or My Maze).
+  /// [mask] enables the "Set It Free" reveal for the custom silhouette;
+  /// [title] is shown in the game top bar (e.g. the typed name).
+  void loadCustomLevel(List<ArrowModel> arrows, int gridSize,
+      {Set<String> mask = const {}, String title = ''}) {
     state = state.copyWith(
-      level: 99,
+      level: state.level,
       arrows: arrows.map((a) => ArrowModel(
         id: a.id,
         path: List<List<int>>.from(a.path.map((p) => List<int>.from(p))),
         arrowAtEnd: a.arrowAtEnd,
+        colorIndex: a.colorIndex,
       )).toList(),
-      chances: 4,
+      chances: 3,
       gameOver: false,
       gridSize: gridSize,
       isLevelComplete: false,
+      revealedCells: {},
+      shapeName: title,
+      isCustomLevel: true,
+      customMask: mask,
     );
     _isProcessingTap = false;
+    _startTimer(state.level);
     _validateSolvability();
+  }
+
+  /// Credits the star wallet only for improvement over the level's best
+  /// record: first clear 2/3 -> +2; later 3/3 -> +1 more; replays with the
+  /// same or fewer stars change nothing. Farming by replaying is impossible.
+  Future<void> _creditBestStars(GameMode mode, int level, int stars) async {
+    final prev = await GameDataManager.loadBestStars(mode.name, level);
+    if (stars > prev) {
+      await GameDataManager.addStars(stars - prev);
+      await GameDataManager.saveBestStars(mode.name, level, stars);
+    }
   }
 
   void tryAgain() {
@@ -453,7 +538,7 @@ class GameNotifier extends StateNotifier<GameState> {
       totalSecs = (level <= 5) ? 60 + (level - 1) * 30 : 180 + (level - 5) * 20;
       if (totalSecs > 300) totalSecs = 300;
     }
-    if (level == 99) totalSecs = 300;
+    if (state.isCustomLevel) totalSecs = 300;
 
     int initialTime = savedTime ?? totalSecs;
 

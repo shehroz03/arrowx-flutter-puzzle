@@ -3,234 +3,353 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'game_state.dart';
 import 'game_board.dart';
 import 'game_data.dart';
+import 'maze_builder.dart';
+import 'shop_provider.dart';
 import 'sound_manager.dart';
+import 'speed_rush_screen.dart';
 import 'level_selection_screen.dart';
 
-class EventsScreen extends ConsumerWidget {
-  const EventsScreen({super.key});
+/// Fully functional events: a real daily shape maze, a real weekly counter
+/// with a claimable reward, real milestones — all paid in stars.
+class EventsScreen extends ConsumerStatefulWidget {
+  final VoidCallback? onBack;
+  const EventsScreen({super.key, this.onBack});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final gameState = ref.watch(gameStateProvider);
+  ConsumerState<EventsScreen> createState() => _EventsScreenState();
+}
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              const Text(
-                "Events",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1E1E2C),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "Special challenges & rewards",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+class _Milestone {
+  final String id;
+  final String title;
+  final int need;
+  final int reward;
+  final IconData icon;
+  final Color color;
+  const _Milestone(this.id, this.title, this.need, this.reward, this.icon, this.color);
+}
 
-              const SizedBox(height: 24),
+class _EventsScreenState extends ConsumerState<EventsScreen> {
+  static const int _dailyReward = 5;
+  static const int _weeklyReward = 20;
 
-              // Active Event — Daily Challenge
-              _EventBanner(
-                title: "Daily Challenge",
-                subtitle: "Complete today's puzzle for bonus coins!",
-                icon: Icons.calendar_today_rounded,
-                gradient: const [Color(0xFF1E56D0), Color(0xFF4A90D9)],
-                tag: "ACTIVE",
-                tagColor: Colors.greenAccent,
-                reward: "+50 Coins",
-                timeLeft: _getTimeUntilMidnight(),
-                onTap: () {
-                  SoundManager().playTap();
-                  GameDataManager.saveLastScreen('game');
-                  // Load a pseudo-random level based on the day of the year
-                  final dayLevel = (DateTime.now().difference(DateTime(2024, 1, 1)).inDays % 70) + 1;
-                  ref.read(gameStateProvider.notifier).loadLevel(dayLevel);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GameBoardScreen()),
-                  ).then((_) => GameDataManager.saveLastScreen('home'));
-                },
-              ),
+  // A friendly shape for every day of the year.
+  static const _dailyShapes = [
+    'Heart', 'Star', 'Rocket', 'Butterfly', 'Flower', 'Crown', 'Fish', 'Sun',
+    'Smiley', 'Balloon', 'Owl', 'Rainbow', 'Cat', 'Trophy', 'Elephant',
+    'Penguin', 'Whale', 'Snowman', 'Gift', 'Strawberry', 'Ghost', 'Turtle',
+    'Dove', 'Cupcake', 'Anchor', 'Gear', 'Atom', 'Pumpkin',
+  ];
 
-              const SizedBox(height: 16),
+  static const _milestones = [
+    _Milestone('first_win', 'First Win', 1, 3, Icons.bolt_rounded, Color(0xFFF39C12)),
+    _Milestone('streak_10', 'On Fire', 10, 10, Icons.local_fire_department_rounded, Color(0xFFE74C3C)),
+    _Milestone('master_50', 'Master', 50, 25, Icons.diamond_rounded, Color(0xFF1E56D0)),
+    _Milestone('legend_100', 'Legend', 100, 50, Icons.military_tech_rounded, Color(0xFF9B59B6)),
+  ];
 
-              // Weekly Challenge
-              _EventBanner(
-                title: "Weekly Marathon",
-                subtitle: "Clear 10 levels this week to earn a trophy",
-                icon: Icons.emoji_events_rounded,
-                gradient: const [Color(0xFFE67E22), Color(0xFFF39C12)],
-                tag: "IN PROGRESS",
-                tagColor: Colors.orangeAccent,
-                reward: "🏆 Trophy + 200 Coins",
-                progress: (gameState.level % 10) / 10,
-                progressLabel: "${gameState.level % 10}/10 Levels",
-                onTap: () {
-                  SoundManager().playTap();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LevelSelectionScreen()),
-                  );
-                },
-              ),
+  bool _loading = true;
+  bool _dailyDone = false;
+  int _weeklyProgress = 0;
+  bool _weeklyClaimed = false;
+  int _maxCompleted = 0;
+  Set<String> _claimedMilestones = {};
 
-              const SizedBox(height: 16),
+  int get _dayOfYear =>
+      DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
 
-              // Speed Tournament
-              _EventBanner(
-                title: "Speed Tournament",
-                subtitle: "Fastest solver wins the leaderboard!",
-                icon: Icons.speed_rounded,
-                gradient: const [Color(0xFFE74C3C), Color(0xFFFF6B6B)],
-                tag: "COMING SOON",
-                tagColor: Colors.grey,
-                reward: "🥇 Top 3 Win 500 Coins",
-                isLocked: true,
-                onTap: () => _showComingSoon(context),
-              ),
+  String get _todayShape => _dailyShapes[_dayOfYear % _dailyShapes.length];
 
-              const SizedBox(height: 28),
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
 
-              // Section: Seasonal
-              const Text(
-                "SEASONAL EVENTS",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 16),
+  Future<void> _reload() async {
+    final dailyDone = await GameDataManager.isDailyDone();
+    final weekly = await GameDataManager.loadWeeklyProgress();
+    final weeklyClaimed = await GameDataManager.isWeeklyClaimed();
+    final maxCompleted = await GameDataManager.loadMaxCompleted();
+    final claimed = <String>{};
+    int granted = 0;
+    for (final m in _milestones) {
+      if (await GameDataManager.isMilestoneClaimed(m.id)) {
+        claimed.add(m.id);
+      } else if (maxCompleted >= m.need) {
+        // Newly achieved milestone: grant its stars exactly once.
+        if (await GameDataManager.claimMilestone(m.id, m.reward)) {
+          claimed.add(m.id);
+          granted += m.reward;
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _dailyDone = dailyDone;
+      _weeklyProgress = weekly;
+      _weeklyClaimed = weeklyClaimed;
+      _maxCompleted = maxCompleted;
+      _claimedMilestones = claimed;
+    });
+    if (granted > 0) {
+      SoundManager().playLevelComplete();
+      ref.read(shopProvider.notifier).refresh();
+      _snack('Milestone reward: +$granted stars!', const Color(0xFF9B59B6));
+    }
+  }
 
-              // Summer Showdown
-              _SeasonalEventCard(
-                title: "Summer Showdown",
-                description: "Exclusive summer-themed arrow puzzles with special backgrounds and effects.",
-                icon: Icons.wb_sunny_rounded,
-                gradient: const [Color(0xFFF39C12), Color(0xFFE67E22)],
-                reward: "🌴 Summer Skin + 300 Coins",
-                daysLeft: 45,
-                isLocked: true,
-                onTap: () => _showComingSoon(context),
-              ),
+  void _snack(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
 
-              const SizedBox(height: 14),
+  Future<void> _playDaily() async {
+    SoundManager().playTap();
+    if (_dailyDone) {
+      _snack('Already completed — come back tomorrow!', const Color(0xFF1E56D0));
+      return;
+    }
+    final seed = DateTime.now().year * 1000 + _dayOfYear;
+    final result = buildShapeMaze(_todayShape, seed: seed);
+    if (result == null) {
+      _snack('Could not build today\'s maze, try again', Colors.redAccent);
+      return;
+    }
+    ref.read(gameStateProvider.notifier).loadCustomLevel(
+          result.arrows,
+          result.gridSize,
+          mask: result.mask,
+          title: 'Daily: $_todayShape',
+        );
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const GameBoardScreen()));
+    if (!mounted) return;
+    final gs = ref.read(gameStateProvider);
+    if (gs.isCustomLevel && gs.isLevelComplete && !_dailyDone) {
+      await GameDataManager.markDailyDone();
+      await GameDataManager.addStars(_dailyReward);
+      ref.read(shopProvider.notifier).refresh();
+      SoundManager().playLevelComplete();
+      _snack('Daily Challenge complete! +$_dailyReward stars', const Color(0xFF2ECC71));
+    }
+    _reload();
+  }
 
-              // Holiday Special
-              _SeasonalEventCard(
-                title: "Holiday Special",
-                description: "Festive puzzles with holiday themes. Double coins on every level!",
-                icon: Icons.celebration_rounded,
-                gradient: const [Color(0xFF9B59B6), Color(0xFFAF7AC5)],
-                reward: "🎄 2x Coins All Week",
-                daysLeft: 120,
-                isLocked: true,
-                onTap: () => _showComingSoon(context),
-              ),
-
-              const SizedBox(height: 28),
-
-              // Section: Achievements
-              const Text(
-                "MILESTONES",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Milestone Cards Row
-              Row(
-                children: [
-                  Expanded(
-                    child: _MilestoneCard(
-                      icon: Icons.bolt_rounded,
-                      title: "First Win",
-                      subtitle: gameState.level > 1 ? "Completed!" : "Clear Stage 1",
-                      isCompleted: gameState.level > 1,
-                      color: const Color(0xFFF39C12),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MilestoneCard(
-                      icon: Icons.local_fire_department_rounded,
-                      title: "5 Streak",
-                      subtitle: gameState.level >= 5 ? "Completed!" : "${gameState.level}/5 Levels",
-                      isCompleted: gameState.level >= 5,
-                      color: const Color(0xFFE74C3C),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _MilestoneCard(
-                      icon: Icons.diamond_rounded,
-                      title: "Master",
-                      subtitle: gameState.level >= 25 ? "Completed!" : "${gameState.level}/25 Levels",
-                      isCompleted: gameState.level >= 25,
-                      color: const Color(0xFF1E56D0),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MilestoneCard(
-                      icon: Icons.military_tech_rounded,
-                      title: "Legend",
-                      subtitle: gameState.level >= 50 ? "Completed!" : "${gameState.level}/50 Levels",
-                      isCompleted: gameState.level >= 50,
-                      color: const Color(0xFF9B59B6),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _onWeeklyTap() async {
+    SoundManager().playTap();
+    if (_weeklyClaimed) {
+      _snack('Weekly reward already collected — new marathon starts next week!',
+          const Color(0xFFE67E22));
+      return;
+    }
+    if (_weeklyProgress >= 10) {
+      final ok = await GameDataManager.claimWeeklyReward(_weeklyReward);
+      if (ok) {
+        ref.read(shopProvider.notifier).refresh();
+        SoundManager().playLevelComplete();
+        _snack('Weekly Marathon complete! +$_weeklyReward stars', const Color(0xFF2ECC71));
+        _reload();
+      }
+      return;
+    }
+    if (!mounted) return;
+    Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const LevelSelectionScreen()))
+        .then((_) => _reload());
   }
 
   String _getTimeUntilMidnight() {
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day + 1);
     final diff = midnight.difference(now);
-    final hours = diff.inHours;
-    final minutes = diff.inMinutes % 60;
-    return "${hours}h ${minutes}m left";
+    return "${diff.inHours}h ${diff.inMinutes % 60}m left";
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Coming Soon! Stay tuned.", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E56D0),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 1),
+  @override
+  Widget build(BuildContext context) {
+    final shop = ref.watch(shopProvider);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFF),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _reload,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header + star balance
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E2C)),
+                      onPressed: () {
+                        if (widget.onBack != null) {
+                          widget.onBack!();
+                        } else if (Navigator.canPop(context)) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      padding: const EdgeInsets.only(right: 8),
+                      constraints: const BoxConstraints(),
+                    ),
+                    const Expanded(
+                      child: Text(
+                        "Events",
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E1E2C),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 10),
+                        ],
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 22),
+                        const SizedBox(width: 5),
+                        Text('${shop.stars}',
+                            style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E1E2C))),
+                      ]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "Real challenges, real star rewards",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Daily Challenge — a fresh shape maze every day
+                _EventBanner(
+                  title: "Daily Challenge",
+                  subtitle: _dailyDone
+                      ? "Done for today — a new shape arrives at midnight!"
+                      : "Solve today's $_todayShape maze for bonus stars",
+                  icon: Icons.calendar_today_rounded,
+                  gradient: _dailyDone
+                      ? const [Color(0xFF2ECC71), Color(0xFF27AE60)]
+                      : const [Color(0xFF1E56D0), Color(0xFF4A90D9)],
+                  tag: _dailyDone ? "COMPLETED" : "ACTIVE",
+                  tagColor: _dailyDone ? Colors.white : Colors.greenAccent,
+                  reward: "+$_dailyReward Stars",
+                  timeLeft: _getTimeUntilMidnight(),
+                  onTap: _loading ? () {} : _playDaily,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Weekly Marathon — real completion counter
+                _EventBanner(
+                  title: "Weekly Marathon",
+                  subtitle: _weeklyClaimed
+                      ? "Reward collected — see you next week!"
+                      : (_weeklyProgress >= 10
+                          ? "Goal reached — tap to claim your stars!"
+                          : "Clear 10 levels this week to earn stars"),
+                  icon: Icons.emoji_events_rounded,
+                  gradient: const [Color(0xFFE67E22), Color(0xFFF39C12)],
+                  tag: _weeklyClaimed
+                      ? "COMPLETED"
+                      : (_weeklyProgress >= 10 ? "CLAIM NOW" : "IN PROGRESS"),
+                  tagColor: _weeklyProgress >= 10 && !_weeklyClaimed
+                      ? Colors.yellowAccent
+                      : Colors.orangeAccent,
+                  reward: "+$_weeklyReward Stars",
+                  progress: (_weeklyProgress / 10).clamp(0.0, 1.0),
+                  progressLabel:
+                      "${_weeklyProgress.clamp(0, 10)}/10 Levels this week",
+                  onTap: _loading ? () {} : _onWeeklyTap,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Speed Rush — real game mode
+                _EventBanner(
+                  title: "Speed Rush",
+                  subtitle: "Race the clock through random levels!",
+                  icon: Icons.speed_rounded,
+                  gradient: const [Color(0xFFE74C3C), Color(0xFFFF6B6B)],
+                  tag: "ACTIVE",
+                  tagColor: Colors.greenAccent,
+                  reward: "Beat your best time",
+                  onTap: () {
+                    SoundManager().playTap();
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SpeedRushScreen()));
+                  },
+                ),
+
+                const SizedBox(height: 28),
+
+                const Text(
+                  "MILESTONES",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.grey,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                for (int row = 0; row < 2; row++) ...[
+                  Row(children: [
+                    for (int col = 0; col < 2; col++) ...[
+                      Expanded(child: _buildMilestone(_milestones[row * 2 + col])),
+                      if (col == 0) const SizedBox(width: 12),
+                    ],
+                  ]),
+                  if (row == 0) const SizedBox(height: 12),
+                ],
+
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildMilestone(_Milestone m) {
+    final done = _maxCompleted >= m.need || _claimedMilestones.contains(m.id);
+    return _MilestoneCard(
+      icon: m.icon,
+      title: m.title,
+      subtitle: done
+          ? "Completed! +${m.reward} stars"
+          : "${_maxCompleted.clamp(0, m.need)}/${m.need} levels",
+      isCompleted: done,
+      color: m.color,
     );
   }
 }
@@ -246,7 +365,6 @@ class _EventBanner extends StatelessWidget {
   final String? timeLeft;
   final double? progress;
   final String? progressLabel;
-  final bool isLocked;
   final VoidCallback onTap;
 
   const _EventBanner({
@@ -260,7 +378,6 @@ class _EventBanner extends StatelessWidget {
     this.timeLeft,
     this.progress,
     this.progressLabel,
-    this.isLocked = false,
     required this.onTap,
   });
 
@@ -272,16 +389,14 @@ class _EventBanner extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: isLocked 
-                ? [Colors.grey.shade600, Colors.grey.shade700]
-                : gradient,
+            colors: gradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: (isLocked ? Colors.grey : gradient[0]).withValues(alpha: 0.3),
+              color: gradient[0].withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -382,107 +497,8 @@ class _EventBanner extends StatelessWidget {
                       Text(timeLeft!, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w600)),
                     ],
                   ),
-                if (isLocked)
-                  const Icon(Icons.lock_rounded, color: Colors.white54, size: 20),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SeasonalEventCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-  final List<Color> gradient;
-  final String reward;
-  final int daysLeft;
-  final bool isLocked;
-  final VoidCallback onTap;
-
-  const _SeasonalEventCard({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.gradient,
-    required this.reward,
-    required this.daysLeft,
-    this.isLocked = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: gradient),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: gradient[0].withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 6)),
-                ],
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(icon, color: Colors.white, size: 28),
-                  if (isLocked)
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.lock_rounded, color: Colors.white70, size: 22),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isLocked ? Colors.grey : const Color(0xFF1E1E2C))),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text("${daysLeft}d", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(description, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 2),
-                  const SizedBox(height: 6),
-                  Text(reward, style: TextStyle(color: gradient[0], fontWeight: FontWeight.w700, fontSize: 12)),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: isLocked ? Colors.grey.shade300 : const Color(0xFF1E56D0)),
           ],
         ),
       ),

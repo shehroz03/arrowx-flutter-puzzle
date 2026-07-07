@@ -8,14 +8,14 @@ void main() {
   List<dynamic> existingRaw = jsonDecode(file.readAsStringSync());
   List<Map<String, dynamic>> levels = List<Map<String, dynamic>>.from(existingRaw);
 
-  // Remove existing 50-70
-  levels.removeWhere((l) => l['level'] >= 50 && l['level'] <= 70);
+  // Remove existing 71-100 if any exist
+  levels.removeWhere((l) => l['level'] >= 71 && l['level'] <= 100);
 
   final rand = Random();
 
-  for (int stage = 50; stage <= 70; stage++) {
-    int gridSize = 50 + (stage - 50) * 2; // From 50 to 90
-    int targetArrows = 245 + ((stage - 50) * 55 / 20).round();
+  for (int stage = 71; stage <= 100; stage++) {
+    int gridSize = 90 + (stage - 70); // From 91 to 120
+    int targetArrows = 300 + (stage - 70) * 5; // From 305 to 450
     double center = gridSize / 2.0;
 
     Set<String> mask = _getMask(stage, gridSize);
@@ -46,7 +46,7 @@ void main() {
       return da.compareTo(db);
     });
 
-    int maxAttempts = 600000;
+    int maxAttempts = 700000;
     int maskLen = maskList.length;
 
     for (int i = 0; i < maxAttempts; i++) {
@@ -74,8 +74,6 @@ void main() {
       int dx = flyDir[0], dy = flyDir[1];
 
       // Check raycast from head to boundary against occupiedCells
-      // Since we generate in reverse order of solving (last arrow to fly away is generated first),
-      // this arrow's flight path must not hit any arrows generated BEFORE it.
       bool rayClear = true;
       int rx = hx + dx;
       int ry = hy + dy;
@@ -91,7 +89,6 @@ void main() {
       if (!rayClear) continue;
 
       // Head is clear to fly! Now build the body BACKWARDS from the head.
-      // The second-to-last point must be at (hx - dx, hy - dy) so flyDirection is correct.
       int px = hx - dx;
       int py = hy - dy;
       if (px < 0 || px >= gridSize || py < 0 || py >= gridSize || occupiedCells.contains('$px,$py')) {
@@ -104,11 +101,11 @@ void main() {
       int curDx = -dx; // current backward direction
       int curDy = -dy;
 
-      // Decide on a shape type: 0: L-shape, 1: S-shape, 2: C-shape/U-turn, 3: Snake/Zig-zag, 4: Straight
+      // Decide on a shape type: 0: Mega L-shape, 1: Mega S-shape, 2: Mega C-shape/Spiral, 3: Colossal Winding Snake, 4: Mega Straight
       int shapeType = rand.nextInt(5);
       
       // If struggling to place the last few arrows, keep them small
-      if (i > 300000) { shapeType = 4; }
+      if (i > 400000) { shapeType = 4; }
 
       bool addStep(int stepDx, int stepDy) {
         int nx = curX + stepDx;
@@ -128,48 +125,46 @@ void main() {
         return false;
       }
 
-      if (shapeType == 0) { // L-Shape
-        int len1 = 1 + rand.nextInt(4);
+      if (shapeType == 0) { // Mega L-Shape
+        int len1 = 3 + rand.nextInt(8);
         for (int s = 0; s < len1; s++) { if (!addStep(curDx, curDy)) break; }
-        // Turn 90 deg
-        int tDx = curDy; int tDy = curDx; // diagonal flip or rotation
-        if (rand.nextBool()) { tDx = -tDx; tDy = -tDy; }
-        int len2 = 2 + rand.nextInt(5);
-        for (int s = 0; s < len2; s++) { if (!addStep(tDx, tDy)) break; }
-      } else if (shapeType == 1) { // S-Shape
-        int len1 = 1 + rand.nextInt(3);
-        for (int s = 0; s < len1; s++) { if (!addStep(curDx, curDy)) break; }
-        // Turn 90 deg
         int tDx = curDy; int tDy = curDx;
         if (rand.nextBool()) { tDx = -tDx; tDy = -tDy; }
-        int len2 = 2 + rand.nextInt(4);
+        int len2 = 4 + rand.nextInt(10);
         for (int s = 0; s < len2; s++) { if (!addStep(tDx, tDy)) break; }
-        // Turn back to original direction
+      } else if (shapeType == 1) { // Mega S-Shape
+        int len1 = 2 + rand.nextInt(6);
+        for (int s = 0; s < len1; s++) { if (!addStep(curDx, curDy)) break; }
+        int tDx = curDy; int tDy = curDx;
+        if (rand.nextBool()) { tDx = -tDx; tDy = -tDy; }
+        int len2 = 3 + rand.nextInt(7);
+        for (int s = 0; s < len2; s++) { if (!addStep(tDx, tDy)) break; }
         int origDx = -dx; int origDy = -dy;
-        int len3 = 2 + rand.nextInt(4);
+        int len3 = 3 + rand.nextInt(8);
         for (int s = 0; s < len3; s++) { if (!addStep(origDx, origDy)) break; }
-      } else if (shapeType == 2) { // C-Shape / U-Turn
-        int len1 = 1 + rand.nextInt(3);
+      } else if (shapeType == 2) { // Mega C-Shape / Spiral Loop
+        int len1 = 2 + rand.nextInt(5);
         for (int s = 0; s < len1; s++) { if (!addStep(curDx, curDy)) break; }
-        // Turn 90 deg
         int tDx = curDy; int tDy = curDx;
         if (rand.nextBool()) { tDx = -tDx; tDy = -tDy; }
-        int len2 = 2 + rand.nextInt(4);
+        int len2 = 3 + rand.nextInt(7);
         for (int s = 0; s < len2; s++) { if (!addStep(tDx, tDy)) break; }
-        // Turn 90 deg again (opposite of initial direction)
         int oppDx = dx; int oppDy = dy;
-        int len3 = 2 + rand.nextInt(4);
+        int len3 = 3 + rand.nextInt(7);
         for (int s = 0; s < len3; s++) { if (!addStep(oppDx, oppDy)) break; }
-      } else if (shapeType == 3) { // Snake / Zig-Zag
-        int segments = 3 + rand.nextInt(4);
+        int oppTDx = -tDx; int oppTDy = -tDy;
+        int len4 = 2 + rand.nextInt(5);
+        for (int s = 0; s < len4; s++) { if (!addStep(oppTDx, oppTDy)) break; }
+      } else if (shapeType == 3) { // Colossal Winding Snake / Zig-Zag (Ghuma Phira Wali Shape)
+        int segments = 5 + rand.nextInt(6);
         for (int seg = 0; seg < segments; seg++) {
           int tDx = curDy; int tDy = curDx;
           if (rand.nextBool()) { tDx = -tDx; tDy = -tDy; }
-          int segLen = 1 + rand.nextInt(3);
+          int segLen = 2 + rand.nextInt(5);
           for (int s = 0; s < segLen; s++) { if (!addStep(tDx, tDy)) break; }
         }
-      } else { // Straight
-        int len = 1 + rand.nextInt(5);
+      } else { // Mega Straight
+        int len = 4 + rand.nextInt(10);
         for (int s = 0; s < len; s++) { if (!addStep(curDx, curDy)) break; }
       }
 
@@ -193,12 +188,10 @@ void main() {
       // Search from outside in, so raycasts to boundary are clear
       for (int r = gridSize - 1; r >= 0 && needed > 0; r--) {
         for (int c = 0; c < gridSize && needed > 0; c++) {
-          // Try (c, r) as head
           if (occupiedCells.contains('$c,$r')) continue;
           List<int> flyDir = getDir(c, r);
           int dx = flyDir[0], dy = flyDir[1];
           
-          // Check raycast
           bool rayClear = true;
           int rx = c + dx; int ry = r + dy;
           while (rx >= 0 && rx < gridSize && ry >= 0 && ry < gridSize) {
@@ -238,24 +231,25 @@ void main() {
 
   final encoder = JsonEncoder.withIndent('  ');
   file.writeAsStringSync(encoder.convert(levels));
-  print('Injected Levels 50-70 successfully with 100% verified solvability, complex S/L/Snake shapes, and exact arrow counts!');
+  print('Injected Levels 71-100 successfully with 100% verified solvability, massive mega-arrows, and exact arrow counts!');
 }
 
 String _getShapeName(int stage) {
   const names = [
-    "Chronos Awakening", "Epic Labyrinth", "The Great Divide", "Chaos Theory", "Infinity Matrix", 
-    "Fractal Web", "Abyssal Zone", "Titan's Grid", "Quantum Entanglement", "Shattered Reality", 
-    "The Void", "Galactic Spiral", "Nebula Cascade", "Event Horizon", "Cosmic Web", 
-    "Supernova Blast", "Black Hole Disk", "Dark Matter Grid", "Hypercube Matrix", "Tesseract Vault", 
-    "Singularity Core"
+    "Chronos Vortex", "Hyperdrive Interstellar", "Olympus Megastructure", "Celestial Meridian", "Solar Plexus",
+    "Eternity Halo", "Yggdrasil World Tree", "Tachyon Web", "Aethelgard Citadel", "Astral Convergence",
+    "Valkyrie Wings", "Oblivion Gateway", "Cybernetic Colossus", "Pulsar Singularity", "Draconic Spine",
+    "Starlight Monolith", "Titan's Hourglass", "Excalibur Matrix", "Nebular Cascade", "Archangel's Crown",
+    "The Infinity Gauntlet", "Cosmic Megalith", "Hyper-Dimensional Rift", "Promethean Torch", "Giga-Fortress",
+    "Pantheon of the Ancients", "Starlight Loom", "Eldritch Eye", "Omniverse Junction", "Absolute Apex Century"
   ];
-  return names[(stage - 50) % names.length];
+  return names[(stage - 71) % names.length];
 }
 
 Set<String> _getMask(int stage, int gs) {
   Set<String> mask = {};
   double mid = gs / 2;
-  int type = (stage - 50);
+  int type = (stage - 71);
   
   for (int y = 0; y < gs; y++) {
     for (int x = 0; x < gs; x++) {
@@ -265,73 +259,99 @@ Set<String> _getMask(int stage, int gs) {
       
       bool add = true;
       if (type == 0) {
-        // Chronos Awakening: Large circular disk with a central crosshair hollow
-        add = (dx.abs() > gs * 0.05 || dy.abs() > gs * 0.05) && r < gs * 0.48;
+        // Chronos Vortex: Starburst Fractal with 12 sharp arms
+        double angle = atan2(dy, dx);
+        add = cos(angle * 12).abs() > 0.15 && r < gs * 0.48;
       } else if (type == 1) {
-        // Epic Labyrinth: Maze corridors
-        add = (x % 4 == 0 || y % 4 == 0 || (dx - dy).abs() < gs * 0.1) && r < gs * 0.48;
+        // Hyperdrive Interstellar: Colossal Lattice Beam
+        add = (x % 5 == 0 || y % 5 == 0 || (dx - dy).abs() < gs * 0.15) && r < gs * 0.47;
       } else if (type == 2) {
-        // The Great Divide: Two massive dense wings separated by a grand diagonal canyon
-        add = (dx - dy).abs() > gs * 0.10 && r < gs * 0.47;
+        // Olympus Megastructure: Dual Conic Vortex
+        add = (dx * dy).abs() > gs * 3 && r < gs * 0.48;
       } else if (type == 3) {
-        // Chaos Theory: Intersecting geometric shockwaves
-        add = (sin(dx * 0.4) * cos(dy * 0.4)).abs() > 0.25 && r < gs * 0.46;
+        // Celestial Meridian: Omega Multi-Ring
+        add = (r.toInt() % 14) < 10 && r < gs * 0.49;
       } else if (type == 4) {
-        // Infinity Matrix: Figure-8 infinity loop
-        double dist1 = sqrt(pow(dx - gs*0.2, 2) + dy*dy);
-        double dist2 = sqrt(pow(dx + gs*0.2, 2) + dy*dy);
-        add = (dist1 < gs*0.3 && dist1 > gs*0.05) || (dist2 < gs*0.3 && dist2 > gs*0.05);
+        // Solar Plexus: High density core radiating to 4 massive solar flares
+        add = r < gs * 0.22 || (dx.abs() < gs * 0.12) || (dy.abs() < gs * 0.12);
       } else if (type == 5) {
-        // Fractal Web: Recursive octagonal web pattern
-        add = (dx.abs() + dy.abs()) % 12 < 9 && r < gs * 0.48;
+        // Eternity Halo: Hollow outer mega-ring with floating inner islands
+        add = (r > gs*0.35 && r < gs*0.48) || (r < gs*0.25 && r > gs*0.10);
       } else if (type == 6) {
-        // Abyssal Zone: Outer dense perimeter framing a deep inner core
-        add = (r > gs*0.30 && r < gs*0.48) || (r < gs*0.18);
+        // Yggdrasil World Tree: Central trunk with branching canopy
+        add = (dx.abs() < gs*0.1 || (dy < 0 && (dx.abs() - dy.abs()).abs() < gs*0.15)) && r < gs*0.48;
       } else if (type == 7) {
-        // Titan's Grid: Massive monolithic blocks
-        add = (x ~/ 6) % 2 == (y ~/ 6) % 2 && r < gs * 0.47;
+        // Tachyon Web: Intricate diamond lattice
+        add = (dx.abs() + dy.abs()) % 10 < 7 && r < gs * 0.48;
       } else if (type == 8) {
-        // Quantum Entanglement: Interlocked twin rings
-        double r1 = sqrt(pow(dx - gs*0.15, 2) + pow(dy - gs*0.15, 2));
-        double r2 = sqrt(pow(dx + gs*0.15, 2) + pow(dy + gs*0.15, 2));
-        add = (r1 > gs*0.12 && r1 < gs*0.35) || (r2 > gs*0.12 && r2 < gs*0.35);
+        // Aethelgard Citadel: Imposing octagonal fortress walls
+        add = (max(dx.abs(), dy.abs()) > gs*0.2 && max(dx.abs(), dy.abs()) < gs*0.45);
       } else if (type == 9) {
-        // Shattered Reality: Fragmented crystal shard zones
-        add = (dx * dy) % 18 > 4 && r < gs * 0.48;
+        // Astral Convergence: 8 converging cosmic rays
+        double angle = atan2(dy, dx);
+        add = sin(angle * 8).abs() > 0.3 && r < gs * 0.48;
       } else if (type == 10) {
-        // The Void: Massive dense starburst radiating outwards
-        double angle = atan2(dy, dx);
-        add = cos(angle * 8).abs() > 0.25 && r < gs * 0.47;
+        // Valkyrie Wings: Majestic sweeping dual wing span
+        add = dy < dx.abs() && r < gs * 0.47 && dx.abs() > gs * 0.05;
       } else if (type == 11) {
-        // Galactic Spiral: Multi-arm spiral galaxy
-        double angle = atan2(dy, dx);
-        add = (r - angle * gs / (2*pi)) % (gs/3) < gs/5 && r < gs * 0.48;
+        // Oblivion Gateway: Giant portal frame with a dense event horizon
+        add = (dx.abs() > gs*0.25 || dy.abs() > gs*0.25) && r < gs * 0.48;
       } else if (type == 12) {
-        // Nebula Cascade: Dense elliptical core with outer energy wisps
-        add = (dx*dx/(gs*gs*0.18) + dy*dy/(gs*gs*0.10)) < 1.0;
+        // Cybernetic Colossus: Interlocking cyber-grid matrix
+        add = (x % 7 < 5 && y % 7 < 5) && r < gs * 0.48;
       } else if (type == 13) {
-        // Event Horizon: Concentric gravitational rings
-        add = (r.toInt() % 12) < 8 && r < gs * 0.48;
+        // Pulsar Singularity: Dense binary star core
+        double r1 = sqrt(pow(dx - gs*0.18, 2) + dy*dy);
+        double r2 = sqrt(pow(dx + gs*0.18, 2) + dy*dy);
+        add = (r1 < gs*0.25 || r2 < gs*0.25) && r < gs * 0.48;
       } else if (type == 14) {
-        // Cosmic Web: Interstellar lattice structure
-        add = (x % 5 < 4 && y % 5 < 4) && r < gs * 0.47;
+        // Draconic Spine: Serrated central ridge with flanking ribs
+        add = (dx.abs() < gs*0.08 || (y % 6 < 3 && dx.abs() < gs*0.35)) && r < gs*0.47;
       } else if (type == 15) {
-        // Supernova Blast: Explosive high-density central blast radiating to 8 corners
-        add = r < gs * 0.25 || (dx.abs() - dy.abs()).abs() < gs * 0.12 || (dx.abs() < gs * 0.08) || (dy.abs() < gs * 0.08);
+        // Starlight Monolith: Imposing towering obelisk
+        add = dx.abs() < gs*0.25 && dy.abs() < gs*0.45;
       } else if (type == 16) {
-        // Black Hole Disk: Dark empty center surrounded by an ultra-dense accretion disk
-        add = r > gs * 0.15 && r < gs * 0.47;
+        // Titan's Hourglass: Opposing upper and lower gravitational cones
+        add = dy.abs() > dx.abs() * 0.6 && r < gs * 0.48;
       } else if (type == 17) {
-        // Dark Matter Grid: Interconnected dark grid network
-        add = (dx.toInt() ^ dy.toInt()) % 11 < 8 && r < gs * 0.48;
+        // Excalibur Matrix: Crux formation resembling a colossal broadsword
+        add = (dx.abs() < gs*0.1 || (dy > -gs*0.2 && dy < 0 && dx.abs() < gs*0.35)) && r < gs*0.48;
       } else if (type == 18) {
-        // Hypercube Matrix: 4D tesseract projection layout
-        add = (dx.abs() < gs*0.35 && dy.abs() < gs*0.35) && (dx.abs() > gs*0.08 || dy.abs() > gs*0.08);
+        // Nebular Cascade: Swirling galactic dust lanes
+        double angle = atan2(dy, dx);
+        add = (r + angle * gs / (2*pi)) % (gs/4) < gs/6 && r < gs * 0.48;
       } else if (type == 19) {
-        // Tesseract Vault: Inner cube suspended within an outer mega-frame
-        add = (dx.abs() < gs*0.46 && dy.abs() < gs*0.46) && !(dx.abs() < gs*0.32 && dy.abs() < gs*0.32 && dx.abs() > gs*0.18 && dy.abs() > gs*0.18);
+        // Archangel's Crown: Semi-circular majestic crest
+        add = dy < gs*0.1 && r > gs*0.2 && r < gs*0.48;
+      } else if (type == 20) {
+        // The Infinity Gauntlet: 6 massive energy chambers
+        add = (x ~/ 12) % 2 == 0 && (y ~/ 12) % 2 == 0 && r < gs * 0.47;
+      } else if (type == 21) {
+        // Cosmic Megalith: Monolithic concentric squares
+        add = (max(dx.abs(), dy.abs()).toInt() % 15) < 11 && r < gs * 0.48;
+      } else if (type == 22) {
+        // Hyper-Dimensional Rift: Diagonal fractured spacetime
+        add = (dx + dy).abs() % 16 < 10 && r < gs * 0.48;
+      } else if (type == 23) {
+        // Promethean Torch: Flaring vertical energy pillar
+        add = dx.abs() < (gs * 0.1 + (dy + gs*0.5)*0.2) && r < gs * 0.48;
+      } else if (type == 24) {
+        // Giga-Fortress: Triple-walled impenetrable keep
+        add = (r > gs*0.38 && r < gs*0.46) || (r > gs*0.22 && r < gs*0.30) || (r < gs*0.12);
+      } else if (type == 25) {
+        // Pantheon of the Ancients: Grand pillared temple layout
+        add = (dy.abs() > gs*0.35 || x % 8 < 4) && r < gs * 0.48;
+      } else if (type == 26) {
+        // Starlight Loom: Intricate woven textile pattern
+        add = ((x + y) % 10 < 6 || (x - y).abs() % 10 < 6) && r < gs * 0.48;
+      } else if (type == 27) {
+        // Eldritch Eye: Unblinking central void enclosed in an almond iris
+        add = (dy.abs() < (gs*0.4 - dx.abs()*0.7)) && r > gs*0.15;
+      } else if (type == 28) {
+        // Omniverse Junction: 4 colliding universal planes
+        add = (dx.abs() > gs*0.08 && dy.abs() > gs*0.08) && r < gs * 0.48;
       } else {
-        // Singularity Core: Ultimate high-density masterwork spanning the entire grid
+        // Absolute Apex Century: The ultimate dense masterwork for Stage 100
         add = r < gs * 0.49;
       }
       
