@@ -13,8 +13,8 @@ class LevelSelectionScreen extends StatefulWidget {
 
 class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   int _unlockedLevel = 1;
-  int _totalPoints = 0;
-  final int _totalLevels = 70; // Total number of levels in the game
+  int _starBalance = 0;
+  final int _totalLevels = 200; // Total number of levels in the game
   bool _isLoading = true;
 
   @override
@@ -26,9 +26,10 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
   // Function to load saved data
   Future<void> _loadData() async {
     Map<String, int> data = await GameDataManager.loadProgress();
+    final stars = await GameDataManager.loadStars();
     setState(() {
       _unlockedLevel = data['level']!;
-      _totalPoints = data['points']!;
+      _starBalance = stars;
       _isLoading = false;
     });
   }
@@ -89,7 +90,14 @@ class _LevelSelectionScreenState extends State<LevelSelectionScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Select Level", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)),
-            Text("Total Points: $_totalPoints 💎", style: const TextStyle(fontSize: 14, color: Colors.amberAccent)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                const SizedBox(width: 4),
+                Text("$_starBalance stars", style: const TextStyle(fontSize: 14, color: Colors.amberAccent)),
+              ],
+            ),
           ],
         ),
         actions: [

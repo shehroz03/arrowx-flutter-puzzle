@@ -196,7 +196,7 @@ class EditorNotifier extends StateNotifier<EditorState> {
 
   /// Export current design as JSON — copies to clipboard & prints to console
   String exportJSON({int? levelNum}) {
-    final int lvl = levelNum ?? (100 + _savedLevels.length);
+    final int lvl = levelNum ?? (1000 + _savedLevels.length);
     final arrowsJson = state.arrows.map((a) {
       final start = a.path.first;
       final dir = a.flyDirection;
@@ -223,7 +223,7 @@ class EditorNotifier extends StateNotifier<EditorState> {
   /// Save current design as a new playable level
   void saveAsNewLevel() {
     if (state.arrows.isEmpty) return;
-    final int lvl = 100 + _savedLevels.length;
+    final int lvl = 1000 + _savedLevels.length;
     final arrowsJson = state.arrows.map((a) {
       final start = a.path.first;
       final dir = a.flyDirection;
